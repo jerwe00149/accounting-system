@@ -1,7 +1,0 @@
-cp: /Users/zhangzhewei/Library/Mobile Documents/com~apple~CloudDocs/Documents/accounting-backup/accounting_dashboard.html: Operation not permitted
-cp: /Users/zhangzhewei/Library/Mobile Documents/com~apple~CloudDocs/Documents/accounting-backup/app.js: Operation not permitted
-cp: /Users/zhangzhewei/Library/Mobile Documents/com~apple~CloudDocs/Documents/accounting-backup/contract_invoice_generator.html: Operation not permitted
-cp: /Users/zhangzhewei/Library/Mobile Documents/com~apple~CloudDocs/Documents/accounting-backup/unified_invoice.html: Operation not permitted
-cp: /Users/zhangzhewei/Library/Mobile Documents/com~apple~CloudDocs/Documents/accounting-backup/accounting-server.js: Operation not permitted
-cp: /Users/zhangzhewei/Library/Mobile Documents/com~apple~CloudDocs/Documents/accounting-backup/default_projects.json: Operation not permitted
-/Users/zhangzhewei/.openclaw/workspace/backup-accounting.sh: line 28: /Users/zhangzhewei/Library/Mobile Documents/com~apple~CloudDocs/Documents/accounting-backup/backup.log: Operation not permitted
