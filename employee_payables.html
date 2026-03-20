@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>應付帳款查詢 — 張哲維建築師事務所</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#f0f2f7;--card:#fff;--border:#e2e8f0;--text:#1e293b;--muted:#64748b;--accent:#4f46e5;--green:#22c55e;--red:#ef4444;--yellow:#f59e0b;--blue:#3b82f6}
+body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.container{max-width:1100px;margin:0 auto;padding:20px}
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px}
+h1{font-size:1.3rem;font-weight:700}
+.header .sub{font-size:.8rem;color:var(--muted)}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+.btn{padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-size:.85rem;font-family:inherit;font-weight:500;transition:all .15s}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:#4338ca}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--muted)}
+.btn-green{background:var(--green);color:#fff}
+select,input[type="text"]{padding:7px 12px;border:1px solid var(--border);border-radius:8px;font-size:.85rem;background:#fff;color:var(--text);font-family:inherit}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px}
+.stat{background:var(--card);border-radius:10px;padding:14px;border:1px solid var(--border)}
+.stat .label{font-size:.75rem;color:var(--muted);margin-bottom:4px}
+.stat .value{font-size:1.3rem;font-weight:700}
+.stat .value.red{color:var(--red)}
+.stat .value.green{color:var(--green)}
+.stat .value.blue{color:var(--blue)}
+
+/* Tabs */
+.tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:2px solid var(--border);padding-bottom:0}
+.tab{padding:10px 18px;cursor:pointer;font-size:.9rem;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .2s}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+
+.section{display:none}
+.section.active{display:block}
+
+/* Table */
+.table-wrap{background:var(--card);border-radius:12px;overflow:auto;border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+th{padding:10px 12px;text-align:left;background:#f8fafc;font-weight:600;white-space:nowrap;border-bottom:2px solid var(--border)}
+td{padding:8px 12px;border-top:1px solid #f1f5f9}
+tr:hover{background:#f8fafc}
+.text-right{text-align:right}
+.mono{font-variant-numeric:tabular-nums}
+
+/* Status badges */
+.badge{display:inline-block;padding:2px 10px;border-radius:12px;font-size:.75rem;font-weight:500}
+.badge-paid{background:#dcfce7;color:#166534}
+.badge-unpaid{background:#fef2f2;color:#991b1b}
+.badge-partial{background:#fef9c3;color:#854d0e}
+
+/* Upload */
+.upload-zone{border:2px dashed var(--border);border-radius:12px;padding:24px;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:16px}
+.upload-zone:hover{border-color:var(--accent);background:rgba(79,70,229,.05)}
+
+/* Vendor card */
+.vendor-card{background:var(--card);border-radius:10px;padding:16px;border:1px solid var(--border);margin-bottom:8px}
+.vendor-card h3{font-size:.95rem;margin-bottom:8px}
+.vendor-card .payments{font-size:.8rem;color:var(--muted);margin-top:8px}
+.payment-row{display:flex;justify-content:space-between;padding:4px 0;border-top:1px solid #f1f5f9}
+.payment-row:first-child{border:none}
+
+/* Auto refresh indicator */
+.refresh-dot{width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block;margin-right:6px;animation:blink 2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* Mobile */
+@media(max-width:768px){
+  .stats{grid-template-columns:1fr 1fr}
+  table{font-size:.8rem}
+  th,td{padding:6px 8px}
+}
+</style>
+</head>
+<body>
+
+<div id="loginGate" style="position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;align-items:center;justify-content:center">
+  <div style="background:var(--card);border-radius:16px;padding:32px;border:1px solid var(--border);text-align:center;width:320px">
+    <div style="font-size:2.5rem;margin-bottom:12px">🔒</div>
+    <h2 style="font-size:1.1rem;margin-bottom:16px">請輸入密碼</h2>
+    <input type="password" id="pwdInput" placeholder="密碼" onkeydown="if(event.key==='Enter')checkPwd()"
+      style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:1rem;text-align:center;margin-bottom:12px">
+    <div id="pwdError" style="color:var(--red);font-size:.85rem;margin-bottom:8px;display:none">密碼錯誤</div>
+    <button class="btn btn-primary" onclick="checkPwd()" style="width:100%;padding:10px;font-size:1rem">進入</button>
+  </div>
+</div>
+<script>
+function checkPwd() {
+  if (document.getElementById('pwdInput').value === '6666') {
+    document.getElementById('loginGate').style.display = 'none';
+    sessionStorage.setItem('emp_auth', '1');
+  } else {
+    document.getElementById('pwdError').style.display = 'block';
+    document.getElementById('pwdInput').value = '';
+  }
+}
+if (sessionStorage.getItem('emp_auth') === '1') {
+  document.getElementById('loginGate').style.display = 'none';
+}
+</script>
+
+<div class="container">
+  <div class="header">
+    <div>
+      <h1>📋 應付帳款查詢</h1>
+      <div class="sub"><span class="refresh-dot"></span>即時同步 · 張哲維建築師事務所</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary" onclick="document.getElementById('scanInput').click()">📷 掃描請款單</button>
+      <input type="file" id="scanInput" accept="image/*,.pdf" capture="environment" style="display:none" onchange="handleScan(this)">
+      <button class="btn btn-outline" onclick="loadData()">🔄 重新整理</button>
+    </div>
+  </div>
+
+  <div id="statsRow" class="stats"></div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('payables')">📋 應付帳款</div>
+    <div class="tab" onclick="switchTab('vendors')">🏢 複委託廠商</div>
+    <div class="tab" onclick="switchTab('scan')">📷 掃描記錄</div>
+  </div>
+
+  <!-- 應付帳款 -->
+  <div id="sec-payables" class="section active">
+    <div class="toolbar">
+      <select id="statusFilter" onchange="render()">
+        <option value="">全部狀態</option>
+        <option value="unpaid">未付款</option>
+        <option value="paid">已付款</option>
+        <option value="partial">部分付款</option>
+      </select>
+      <select id="vendorFilter" onchange="render()"></select>
+      <input type="text" id="searchBox" placeholder="🔍 搜尋..." oninput="render()">
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>日期</th><th>廠商</th><th>說明</th>
+          <th class="text-right">金額</th><th class="text-right">已付</th>
+          <th>狀態</th><th>付款日</th>
+        </tr></thead>
+        <tbody id="payablesTbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 複委託廠商 -->
+  <div id="sec-vendors" class="section">
+    <div id="vendorCards"></div>
+  </div>
+
+  <!-- 掃描記錄 -->
+  <div id="sec-scan" class="section">
+    <div class="upload-zone" onclick="document.getElementById('scanInput').click()">
+      <div style="font-size:2rem;margin-bottom:8px">📷</div>
+      <p>點擊拍照或上傳請款單</p>
+      <p style="font-size:.8rem;color:var(--muted)">支援圖片、PDF</p>
+    </div>
+    <div id="scanHistory"></div>
+  </div>
+</div>
+
+<!-- 掃描結果 Modal -->
+<div id="scanModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;display:none;justify-content:center;align-items:center;padding:20px">
+  <div style="background:#fff;border-radius:12px;padding:24px;max-width:500px;width:100%;max-height:80vh;overflow:auto">
+    <h3 style="margin-bottom:12px">📷 掃描結果</h3>
+    <img id="scanPreview" style="max-width:100%;border-radius:8px;margin-bottom:12px;display:none">
+    <div id="scanResult" style="font-size:.9rem"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-outline" onclick="closeScanModal()">關閉</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let payables = [];
+let subcontractors = [];
+let scanRecords = JSON.parse(localStorage.getItem('emp_scans') || '[]');
+
+// 載入資料（從會計系統同步）
+async function loadData() {
+  try {
+    const r = await fetch('/api/data/archAccounting');
+    const data = await r.json();
+    payables = data.payables || [];
+    subcontractors = data.projects || [];
+    
+    // 也載入複委託廠商
+    try {
+      const r2 = await fetch('/api/vendors');
+      const vendors = await r2.json();
+      if (vendors && vendors.length) {
+        window._vendors = vendors;
+      }
+    } catch(e) {}
+    
+    buildFilters();
+    render();
+    renderVendors();
+    renderScanHistory();
+  } catch(e) {
+    console.error('載入失敗:', e);
+  }
+}
+
+function buildFilters() {
+  const vf = document.getElementById('vendorFilter');
+  const vendors = new Set();
+  payables.forEach(p => { if (p.vendor) vendors.add(p.vendor); });
+  vf.innerHTML = '<option value="">全部廠商</option>';
+  Array.from(vendors).sort().forEach(v => {
+    vf.innerHTML += '<option value="' + v + '">' + v + '</option>';
+  });
+}
+
+function getFiltered() {
+  const status = document.getElementById('statusFilter').value;
+  const vendor = document.getElementById('vendorFilter').value;
+  const search = document.getElementById('searchBox').value.toLowerCase();
+  
+  return payables.filter(p => {
+    if (status === 'paid' && !p.paid) return false;
+    if (status === 'unpaid' && p.paid) return false;
+    if (status === 'partial' && (!p.paidAmount || p.paidAmount >= (p.amount || 0))) return false;
+    if (vendor && p.vendor !== vendor) return false;
+    if (search) {
+      const text = ((p.vendor||'') + ' ' + (p.description||'') + ' ' + (p.remark||'')).toLowerCase();
+      if (text.indexOf(search) < 0) return false;
+    }
+    return true;
+  });
+}
+
+function fmt(n) { return n ? '$' + n.toLocaleString() : ''; }
+
+function getStatus(p) {
+  if (p.paid) return { label: '已付款', cls: 'badge-paid' };
+  if (p.paidAmount && p.paidAmount > 0) return { label: '部分付款', cls: 'badge-partial' };
+  return { label: '未付款', cls: 'badge-unpaid' };
+}
+
+function render() {
+  const filtered = getFiltered();
+  
+  // Stats
+  let totalAmt = 0, totalPaid = 0, unpaidCount = 0;
+  payables.forEach(p => {
+    totalAmt += p.amount || 0;
+    if (p.paid) totalPaid += p.amount || 0;
+    else if (p.paidAmount) totalPaid += p.paidAmount;
+    else unpaidCount++;
+  });
+  
+  document.getElementById('statsRow').innerHTML = 
+    '<div class="stat"><div class="label">應付總額</div><div class="value">' + fmt(totalAmt) + '</div></div>' +
+    '<div class="stat"><div class="label">已付款</div><div class="value green">' + fmt(totalPaid) + '</div></div>' +
+    '<div class="stat"><div class="label">未付餘額</div><div class="value red">' + fmt(totalAmt - totalPaid) + '</div></div>' +
+    '<div class="stat"><div class="label">待處理</div><div class="value blue">' + unpaidCount + ' 筆</div></div>';
+  
+  // Table
+  const tb = document.getElementById('payablesTbody');
+  if (!filtered.length) {
+    tb.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--muted)">無資料</td></tr>';
+    return;
+  }
+  
+  tb.innerHTML = filtered.sort((a,b) => (b.date||'').localeCompare(a.date||'')).map(p => {
+    const st = getStatus(p);
+    return '<tr>' +
+      '<td>' + (p.date || '') + '</td>' +
+      '<td style="font-weight:500">' + (p.vendor || '') + '</td>' +
+      '<td>' + (p.description || '') + '</td>' +
+      '<td class="text-right mono" style="font-weight:600">' + fmt(p.amount) + '</td>' +
+      '<td class="text-right mono">' + (p.paid ? fmt(p.amount) : fmt(p.paidAmount || 0)) + '</td>' +
+      '<td><span class="badge ' + st.cls + '">' + st.label + '</span></td>' +
+      '<td>' + (p.paidDate || p.payDate || '') + '</td>' +
+      '</tr>';
+  }).join('');
+}
+
+function renderVendors() {
+  // Group payables by vendor
+  const groups = {};
+  payables.forEach(p => {
+    const v = p.vendor || '未知';
+    if (!groups[v]) groups[v] = { total: 0, paid: 0, items: [] };
+    groups[v].total += p.amount || 0;
+    if (p.paid) groups[v].paid += p.amount || 0;
+    else if (p.paidAmount) groups[v].paid += p.paidAmount;
+    groups[v].items.push(p);
+  });
+  
+  const container = document.getElementById('vendorCards');
+  const sorted = Object.entries(groups).sort((a,b) => b[1].total - a[1].total);
+  
+  container.innerHTML = sorted.map(([name, data]) => {
+    const unpaid = data.total - data.paid;
+    const paidItems = data.items.filter(i => i.paid || i.paidAmount).sort((a,b) => (b.paidDate||b.date||'').localeCompare(a.paidDate||a.date||''));
+    
+    return '<div class="vendor-card">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center">' +
+      '<h3>🏢 ' + name + '</h3>' +
+      '<span class="badge ' + (unpaid > 0 ? 'badge-unpaid' : 'badge-paid') + '">' + (unpaid > 0 ? '未結 ' + fmt(unpaid) : '已結清') + '</span>' +
+      '</div>' +
+      '<div style="display:flex;gap:16px;font-size:.85rem;margin-top:4px">' +
+      '<span>總額 ' + fmt(data.total) + '</span>' +
+      '<span style="color:var(--green)">已付 ' + fmt(data.paid) + '</span>' +
+      '<span style="color:var(--red)">未付 ' + fmt(unpaid) + '</span>' +
+      '<span>' + data.items.length + ' 筆</span>' +
+      '</div>' +
+      (paidItems.length ? '<div class="payments"><div style="font-weight:500;margin-bottom:4px">付款紀錄：</div>' +
+        paidItems.slice(0, 5).map(i => 
+          '<div class="payment-row"><span>' + (i.paidDate || i.date || '') + '</span><span style="color:var(--green)">' + fmt(i.paidAmount || i.amount) + '</span></div>'
+        ).join('') +
+        (paidItems.length > 5 ? '<div style="color:var(--muted);font-size:.75rem;padding:4px 0">...還有 ' + (paidItems.length-5) + ' 筆</div>' : '') +
+      '</div>' : '') +
+      '</div>';
+  }).join('');
+}
+
+// Tab switching
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('sec-' + tab).classList.add('active');
+}
+
+// 掃描請款單
+async function handleScan(input) {
+  const file = input.files[0];
+  if (!file) return;
+  
+  // Show preview
+  document.getElementById('scanModal').style.display = 'flex';
+  const preview = document.getElementById('scanPreview');
+  const result = document.getElementById('scanResult');
+  
+  if (file.type.startsWith('image/')) {
+    const reader = new FileReader();
+    reader.onload = e => { preview.src = e.target.result; preview.style.display = 'block'; };
+    reader.readAsDataURL(file);
+  }
+  
+  result.innerHTML = '🔄 辨識中...';
+  
+  // Convert to base64 and send to AI
+  try {
+    const base64 = await new Promise(resolve => {
+      const r = new FileReader();
+      r.onload = e => resolve(e.target.result.split(',')[1]);
+      r.readAsDataURL(file);
+    });
+    
+    const resp = await fetch('/api/parse-expense', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: base64, filename: file.name })
+    });
+    const data = await resp.json();
+    
+    if (data.success && data.data) {
+      const d = data.data;
+      result.innerHTML = '✅ 辨識成功<br>' +
+        '📅 日期：' + (d.date || '未辨識') + '<br>' +
+        '🏢 廠商：' + (d.vendor || '未辨識') + '<br>' +
+        '📦 品項：' + (d.description || '未辨識') + '<br>' +
+        '💰 金額：$' + ((d.amount||0).toLocaleString()) + '<br>' +
+        '🏷️ 分類：' + (d.category || '未辨識');
+      
+      // Save scan record
+      scanRecords.unshift({ date: new Date().toISOString(), result: d, filename: file.name });
+      localStorage.setItem('emp_scans', JSON.stringify(scanRecords.slice(0, 50)));
+      renderScanHistory();
+    } else {
+      result.innerHTML = '⚠️ 辨識失敗：' + (data.error || '請重新拍照');
+    }
+  } catch(e) {
+    result.innerHTML = '❌ 錯誤：' + e.message;
+  }
+  
+  input.value = '';
+}
+
+function closeScanModal() {
+  document.getElementById('scanModal').style.display = 'none';
+}
+
+function renderScanHistory() {
+  const container = document.getElementById('scanHistory');
+  if (!scanRecords.length) {
+    container.innerHTML = '<p style="text-align:center;color:var(--muted);padding:24px">尚無掃描記錄</p>';
+    return;
+  }
+  container.innerHTML = scanRecords.map(s => {
+    const d = s.result || {};
+    const dt = new Date(s.date).toLocaleString('zh-TW');
+    return '<div class="vendor-card">' +
+      '<div style="display:flex;justify-content:space-between">' +
+      '<span style="font-weight:500">' + (d.vendor || '未辨識') + '</span>' +
+      '<span style="font-size:.8rem;color:var(--muted)">' + dt + '</span>' +
+      '</div>' +
+      '<div style="font-size:.85rem;margin-top:4px">' + (d.description || '') + '</div>' +
+      '<div style="font-weight:600;margin-top:4px">$' + ((d.amount||0).toLocaleString()) + '</div>' +
+      '</div>';
+  }).join('');
+}
+
+// Auto refresh every 30 seconds
+setInterval(loadData, 30000);
+
+// Init
+loadData();
+</script>
+</body>
+</html>

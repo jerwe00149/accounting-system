@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>應收帳款追蹤 — 張哲維建築師事務所</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--accent:#1a5276;--accent2:#2980b9;--bg:#f0f2f5;--card:#fff;--text:#1a1a1a;--muted:#666;--border:#e0e0e0;--radius:8px;--success:#27ae60;--warn:#e67e22;--danger:#e74c3c}
+body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:20px}
+
+.container{max-width:1200px;margin:0 auto}
+h1{text-align:center;color:var(--accent);margin-bottom:8px;font-size:1.5rem}
+.subtitle{text-align:center;color:var(--muted);font-size:.85rem;margin-bottom:24px}
+
+/* Stats */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px}
+.stat{background:var(--card);border-radius:var(--radius);padding:20px;box-shadow:0 2px 6px rgba(0,0,0,.06)}
+.stat .label{font-size:.78rem;color:var(--muted);margin-bottom:4px}
+.stat .value{font-size:1.5rem;font-weight:700}
+.stat .sub{font-size:.75rem;color:var(--muted);margin-top:4px}
+.stat.blue{border-left:4px solid var(--accent2)}
+.stat.green{border-left:4px solid var(--success)}
+.stat.orange{border-left:4px solid var(--warn)}
+.stat.red{border-left:4px solid var(--danger)}
+
+/* Toolbar */
+.toolbar{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.toolbar input,.toolbar select{padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius);font-size:.85rem;font-family:inherit}
+.toolbar input{width:250px}
+.toolbar select{min-width:130px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border:none;border-radius:var(--radius);font-family:inherit;font-size:.85rem;font-weight:600;cursor:pointer;transition:all .15s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:#0e3a53}
+.btn-success{background:var(--success);color:#fff}.btn-success:hover{background:#1e8449}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}.btn-outline:hover{background:#f5f5f5}
+.btn-sm{padding:5px 10px;font-size:.8rem}
+.btn-warn{background:var(--warn);color:#fff}
+.btn-danger{background:var(--danger);color:#fff}
+
+/* Table */
+.table-wrap{background:var(--card);border-radius:var(--radius);box-shadow:0 2px 6px rgba(0,0,0,.06);overflow:auto;margin-bottom:24px}
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+thead{position:sticky;top:0;z-index:5}
+th{background:#f8fafc;padding:10px 14px;text-align:left;font-weight:600;border-bottom:2px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none}
+th:hover{background:#eef2f7}
+td{padding:9px 14px;border-bottom:1px solid #f0f0f0}
+tbody tr:hover{background:#f5f9ff}
+.text-right{text-align:right}
+.text-center{text-align:center}
+.mono{font-family:'SF Mono',monospace;font-size:.82rem}
+
+/* Badge */
+.badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:.75rem;font-weight:600}
+.badge-paid{background:#dcfce7;color:#166534}
+.badge-partial{background:#fef3c7;color:#92400e}
+.badge-unpaid{background:#fee2e2;color:#991b1b}
+.badge-over{background:#fecaca;color:#7f1d1d;animation:pulse 2s infinite}
+
+/* Progress bar */
+.progress{height:8px;background:#e5e7eb;border-radius:4px;overflow:hidden;min-width:80px}
+.progress-bar{height:100%;border-radius:4px;transition:width .3s}
+.progress-green{background:var(--success)}
+.progress-yellow{background:var(--warn)}
+.progress-red{background:var(--danger)}
+
+/* Modal */
+.modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:1000;justify-content:center;align-items:center}
+.modal-overlay.active{display:flex}
+.modal{background:var(--card);border-radius:var(--radius);padding:28px;max-width:600px;width:95%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.modal h3{margin-bottom:16px;color:var(--accent)}
+.fg{margin-bottom:12px}
+.fg label{display:block;font-size:.8rem;color:var(--muted);margin-bottom:3px;font-weight:500}
+.fg input,.fg select,.fg textarea{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:5px;font-size:.9rem;font-family:inherit}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* Timeline */
+.timeline{margin-top:12px;padding-left:20px;border-left:2px solid var(--accent2)}
+.timeline-item{position:relative;padding:8px 0 8px 16px;font-size:.83rem}
+.timeline-item::before{content:'';position:absolute;left:-26px;top:12px;width:10px;height:10px;border-radius:50%;background:var(--accent2)}
+.timeline-item.paid::before{background:var(--success)}
+.timeline-item .t-date{color:var(--muted);font-size:.78rem}
+.timeline-item .t-amt{font-weight:600}
+
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+
+@media print{
+  .toolbar,.btn,.modal-overlay{display:none!important}
+  body{background:#fff;padding:0}
+  .table-wrap{box-shadow:none}
+}
+@media(max-width:768px){
+  .stats{grid-template-columns:1fr 1fr}
+  .toolbar input{width:100%}
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>💰 應收帳款追蹤</h1>
+  <p class="subtitle">張哲維建築師事務所 — 自動從案件收支同步</p>
+
+  <div class="stats" id="statsRow"></div>
+
+  <div class="toolbar">
+    <input type="text" id="searchInput" placeholder="搜尋案名、業主、案號..." oninput="render()">
+    <select id="filterStatus" onchange="render()">
+      <option value="all">全部狀態</option>
+      <option value="unpaid">未收款</option>
+      <option value="partial">部分收款</option>
+      <option value="paid">已收齊</option>
+      <option value="overdue">逾期未收</option>
+    </select>
+    <select id="filterYear" onchange="render()"><option value="all">全部年度</option></select>
+    <select id="sortBy" onchange="render()">
+      <option value="outstanding-desc">未收金額 ↓</option>
+      <option value="outstanding-asc">未收金額 ↑</option>
+      <option value="percent-asc">收款率 ↑</option>
+      <option value="percent-desc">收款率 ↓</option>
+      <option value="contract-desc">合約金額 ↓</option>
+      <option value="year-desc">年度 ↓</option>
+    </select>
+    <button class="btn btn-primary" onclick="syncFromAccounting()">🔄 同步案件資料</button>
+    <button class="btn btn-outline" onclick="exportCSV()">📥 匯出 CSV</button>
+    <button class="btn btn-outline" onclick="window.print()">🖨️ 列印</button>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>案號</th>
+          <th>年度</th>
+          <th>案名</th>
+          <th>業主</th>
+          <th class="text-right">合約金額</th>
+          <th class="text-right">已收金額</th>
+          <th class="text-right">未收金額</th>
+          <th style="min-width:100px">收款進度</th>
+          <th>狀態</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Detail Modal -->
+<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal" id="modalContent"></div>
+</div>
+
+<script>
+const API_BASE = location.origin + '/api/data';
+let receivables = [];
+let projects = [];
+
+async function init(){
+  // Load receivables data (extra notes/due dates)
+  try{
+    const r = await fetch(API_BASE + '/receivables');
+    if(r.ok) receivables = await r.json();
+  }catch(e){}
+  if(!Array.isArray(receivables)) receivables = [];
+
+  await syncFromAccounting();
+}
+
+async function syncFromAccounting(){
+  try{
+    const r = await fetch(API_BASE + '/archAccounting');
+    if(!r.ok) throw new Error('no data');
+    const db = await r.json();
+    projects = (db.projects || []).map(p => {
+      const received = calcReceived(p);
+      const contract = p.contractAmt || 0;
+      const outstanding = contract - received;
+      const percent = contract > 0 ? Math.round(received / contract * 100) : 0;
+
+      // Merge extra receivable data (notes, due date)
+      const extra = receivables.find(r => r.projectId === p.id) || {};
+
+      return {
+        id: p.id,
+        businessNo: p.businessNo || '',
+        year: p.year || '',
+        projectName: p.projectName || '',
+        client: p.client || '',
+        location: p.location || '',
+        contractAmt: contract,
+        received,
+        outstanding,
+        percent,
+        payments: getPayments(p),
+        dueDate: extra.dueDate || '',
+        notes: extra.notes || '',
+        subcontractor: p.subcontractor || ''
+      };
+    });
+
+    populateYears();
+    render();
+  }catch(e){
+    console.error('Sync failed:', e);
+    document.getElementById('tableBody').innerHTML = '<tr><td colspan="10" style="text-align:center;padding:30px;color:#999">⚠️ 無法讀取案件資料，請確認會計管理系統伺服器運行中</td></tr>';
+  }
+}
+
+function calcReceived(p){
+  let sum = 0;
+  for(let i=1;i<=5;i++) sum += (p['p'+i+'_amt'] || 0);
+  return sum;
+}
+
+function getPayments(p){
+  const payments = [];
+  for(let i=1;i<=5;i++){
+    const amt = p['p'+i+'_amt'] || 0;
+    const date = p['p'+i+'_date'] || '';
+    const method = p['p'+i+'_method'] || '';
+    if(amt > 0 || date) payments.push({period: i, amt, date, method});
+  }
+  return payments;
+}
+
+function getStatus(p){
+  if(p.contractAmt <= 0) return {label:'未定價',cls:'badge-partial',key:'unpaid'};
+  if(p.percent >= 100) return {label:'已收齊',cls:'badge-paid',key:'paid'};
+  if(p.received <= 0) return {label:'未收款',cls:'badge-unpaid',key:'unpaid'};
+  if(p.dueDate && new Date(p.dueDate) < new Date()) return {label:'逾期',cls:'badge-over',key:'overdue'};
+  return {label:'部分收款',cls:'badge-partial',key:'partial'};
+}
+
+function populateYears(){
+  const years = new Set();
+  projects.forEach(p => { if(p.year) years.add(p.year) });
+  const sel = document.getElementById('filterYear');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="all">全部年度</option>';
+  [...years].sort((a,b)=>b.localeCompare(a)).forEach(y => {
+    sel.innerHTML += `<option value="${y}">${y}</option>`;
+  });
+  sel.value = cur || 'all';
+}
+
+function fmt(n){ return 'NT$ ' + n.toLocaleString('zh-TW') }
+
+function render(){
+  const search = document.getElementById('searchInput').value.toLowerCase();
+  const statusFilter = document.getElementById('filterStatus').value;
+  const yearFilter = document.getElementById('filterYear').value;
+  const sortBy = document.getElementById('sortBy').value;
+
+  let filtered = projects.filter(p => {
+    if(search && !(p.projectName+p.client+p.businessNo+p.location).toLowerCase().includes(search)) return false;
+    if(yearFilter !== 'all' && p.year !== yearFilter) return false;
+    const st = getStatus(p).key;
+    if(statusFilter === 'unpaid' && st !== 'unpaid') return false;
+    if(statusFilter === 'partial' && st !== 'partial') return false;
+    if(statusFilter === 'paid' && st !== 'paid') return false;
+    if(statusFilter === 'overdue' && st !== 'overdue') return false;
+    return true;
+  });
+
+  // Sort
+  const [field, dir] = sortBy.split('-');
+  filtered.sort((a,b) => {
+    let va, vb;
+    if(field === 'outstanding'){ va = a.outstanding; vb = b.outstanding; }
+    else if(field === 'percent'){ va = a.percent; vb = b.percent; }
+    else if(field === 'contract'){ va = a.contractAmt; vb = b.contractAmt; }
+    else if(field === 'year'){ va = a.year; vb = b.year; }
+    else { va = a.outstanding; vb = b.outstanding; }
+    return dir === 'asc' ? va - vb : vb - va;
+  });
+
+  // Stats
+  const totalContract = projects.reduce((s,p) => s + p.contractAmt, 0);
+  const totalReceived = projects.reduce((s,p) => s + p.received, 0);
+  const totalOutstanding = projects.reduce((s,p) => s + Math.max(0, p.outstanding), 0);
+  const unpaidCount = projects.filter(p => getStatus(p).key === 'unpaid' || getStatus(p).key === 'partial' || getStatus(p).key === 'overdue').length;
+
+  document.getElementById('statsRow').innerHTML = `
+    <div class="stat blue"><div class="label">合約總額</div><div class="value">${fmt(totalContract)}</div><div class="sub">${projects.length} 件案件</div></div>
+    <div class="stat green"><div class="label">已收款總額</div><div class="value">${fmt(totalReceived)}</div><div class="sub">收款率 ${totalContract>0?Math.round(totalReceived/totalContract*100):0}%</div></div>
+    <div class="stat orange"><div class="label">未收款總額</div><div class="value">${fmt(totalOutstanding)}</div><div class="sub">${unpaidCount} 件未收齊</div></div>
+    <div class="stat red"><div class="label">逾期未收</div><div class="value">${fmt(projects.filter(p=>getStatus(p).key==='overdue').reduce((s,p)=>s+p.outstanding,0))}</div><div class="sub">${projects.filter(p=>getStatus(p).key==='overdue').length} 件逾期</div></div>
+  `;
+
+  // Table
+  const tbody = document.getElementById('tableBody');
+  if(!filtered.length){
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:30px;color:#999">無符合條件的資料</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(p => {
+    const st = getStatus(p);
+    const pctColor = p.percent >= 100 ? 'green' : p.percent >= 50 ? 'yellow' : 'red';
+    return `<tr>
+      <td class="mono">${p.businessNo}</td>
+      <td class="text-center">${p.year}</td>
+      <td><strong>${p.projectName}</strong></td>
+      <td>${p.client}</td>
+      <td class="text-right mono">${fmt(p.contractAmt)}</td>
+      <td class="text-right mono" style="color:var(--success)">${fmt(p.received)}</td>
+      <td class="text-right mono" style="color:${p.outstanding>0?'var(--danger)':'var(--success)'}; font-weight:700">${fmt(Math.max(0,p.outstanding))}</td>
+      <td><div class="progress"><div class="progress-bar progress-${pctColor}" style="width:${Math.min(100,p.percent)}%"></div></div><span style="font-size:.75rem;color:var(--muted)">${p.percent}%</span></td>
+      <td><span class="badge ${st.cls}">${st.label}</span></td>
+      <td><button class="btn btn-outline btn-sm" onclick="showDetail(${p.id})">明細</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function showDetail(id){
+  const p = projects.find(x => x.id === id);
+  if(!p) return;
+  const st = getStatus(p);
+
+  let paymentsHTML = '';
+  if(p.payments.length){
+    paymentsHTML = '<div class="timeline">' + p.payments.map(pay => {
+      const paid = pay.amt > 0 && pay.date;
+      return `<div class="timeline-item ${paid?'paid':''}">
+        <div>第 ${pay.period} 期 — <span class="t-amt">${fmt(pay.amt)}</span></div>
+        <div class="t-date">${pay.date || '未收款'} ${pay.method ? '（'+pay.method+'）': ''}</div>
+      </div>`;
+    }).join('') + '</div>';
+  } else {
+    paymentsHTML = '<p style="color:#999;font-size:.85rem">無收款紀錄</p>';
+  }
+
+  document.getElementById('modalContent').innerHTML = `
+    <h3>📋 ${p.projectName}</h3>
+    <div class="row2" style="margin-bottom:16px">
+      <div>
+        <div class="fg"><label>案號</label><div style="font-weight:600">${p.businessNo}</div></div>
+        <div class="fg"><label>業主</label><div style="font-weight:600">${p.client}</div></div>
+        <div class="fg"><label>地點</label><div>${p.location || '—'}</div></div>
+        <div class="fg"><label>複委託</label><div>${p.subcontractor || '—'}</div></div>
+      </div>
+      <div>
+        <div class="fg"><label>合約金額</label><div style="font-weight:700;font-size:1.1rem">${fmt(p.contractAmt)}</div></div>
+        <div class="fg"><label>已收金額</label><div style="font-weight:700;color:var(--success)">${fmt(p.received)}</div></div>
+        <div class="fg"><label>未收金額</label><div style="font-weight:700;color:var(--danger);font-size:1.1rem">${fmt(Math.max(0,p.outstanding))}</div></div>
+        <div class="fg"><label>狀態</label><span class="badge ${st.cls}">${st.label}</span></div>
+      </div>
+    </div>
+
+    <h4 style="margin-bottom:8px;color:var(--accent)">收款紀錄</h4>
+    ${paymentsHTML}
+
+    <div style="margin-top:20px">
+      <h4 style="margin-bottom:8px;color:var(--accent)">追蹤設定</h4>
+      <div class="row2">
+        <div class="fg"><label>預計收款日</label><input type="date" id="detailDue" value="${p.dueDate}"></div>
+        <div class="fg"><label>備註</label><input id="detailNotes" value="${p.notes}" placeholder="催款紀錄..."></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn btn-primary btn-sm" onclick="saveExtra(${p.id})">💾 儲存追蹤</button>
+        <button class="btn btn-outline btn-sm" onclick="closeModal()">關閉</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('modalOverlay').classList.add('active');
+}
+
+function closeModal(){
+  document.getElementById('modalOverlay').classList.remove('active');
+}
+
+async function saveExtra(id){
+  const dueDate = document.getElementById('detailDue').value;
+  const notes = document.getElementById('detailNotes').value;
+  const idx = receivables.findIndex(r => r.projectId === id);
+  const obj = {projectId: id, dueDate, notes};
+  if(idx >= 0) receivables[idx] = obj;
+  else receivables.push(obj);
+
+  // Update local
+  const p = projects.find(x => x.id === id);
+  if(p){ p.dueDate = dueDate; p.notes = notes; }
+
+  // Save
+  try{
+    await fetch(API_BASE + '/receivables', {
+      method: 'PUT',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(receivables)
+    });
+  }catch(e){}
+  localStorage.setItem('receivablesExtra', JSON.stringify(receivables));
+
+  render();
+  closeModal();
+}
+
+function exportCSV(){
+  const rows = [['案號','年度','案名','業主','地點','合約金額','已收金額','未收金額','收款率','狀態','預計收款日','備註']];
+  projects.forEach(p => {
+    const st = getStatus(p);
+    rows.push([p.businessNo, p.year, p.projectName, p.client, p.location, p.contractAmt, p.received, Math.max(0,p.outstanding), p.percent+'%', st.label, p.dueDate, p.notes]);
+  });
+  const csv = '\uFEFF' + rows.map(r => r.map(c => '"'+(c+'').replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `應收帳款_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+init();
+</script>
+</body>
+</html>

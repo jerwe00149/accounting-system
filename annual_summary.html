@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>年度收支總覽 — 張哲維建築師事務所</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0f172a;--card:#1e293b;--accent:#6366f1;--text:#e2e8f0;--text-light:#94a3b8;--border:#334155;--green:#22c55e;--red:#ef4444;--yellow:#eab308}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.container{max-width:1200px;margin:0 auto;padding:20px}
+h1{font-size:1.5rem;margin-bottom:20px;display:flex;align-items:center;gap:10px}
+h1 a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.year-bar{display:flex;gap:10px;margin-bottom:24px;align-items:center}
+.year-bar select{background:var(--card);color:var(--text);border:1px solid var(--border);padding:8px 16px;border-radius:8px;font-size:1rem}
+.summary-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:30px}
+.s-card{background:var(--card);border-radius:12px;padding:20px;border:1px solid var(--border)}
+.s-card .label{font-size:.8rem;color:var(--text-light);margin-bottom:8px}
+.s-card .value{font-size:1.6rem;font-weight:700}
+.s-card .sub{font-size:.75rem;color:var(--text-light);margin-top:4px}
+.positive{color:var(--green)}.negative{color:var(--red)}
+.section{background:var(--card);border-radius:12px;padding:20px;border:1px solid var(--border);margin-bottom:20px}
+.section h2{font-size:1.1rem;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+th{text-align:left;padding:8px 10px;color:var(--text-light);border-bottom:1px solid var(--border);font-weight:600}
+td{padding:8px 10px;border-bottom:1px solid rgba(51,65,85,.5)}
+.right{text-align:right}
+.bar{height:8px;border-radius:4px;margin-top:6px}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>📊 年度收支總覽 <a href="/accounting_dashboard.html">← 回會計系統</a> </h1>
+  
+  <div class="year-bar">
+    <select id="yearSel" onchange="render()"></select>
+  </div>
+
+  <div class="summary-cards" id="cards"></div>
+
+  <div class="section" id="incomeSection">
+    <h2>📈 收入明細（依收款日期）</h2>
+    <table><thead><tr><th>案件</th><th>業主</th><th>期數</th><th>收款日期</th><th class="right">金額</th></tr></thead>
+    <tbody id="incomeTbody"></tbody></table>
+  </div>
+
+  <div class="section" id="expenseSection">
+    <h2>📉 支出明細</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px" id="expBreakdown"></div>
+  </div>
+
+  <div class="section" id="monthlySection">
+    <h2>📅 月度趨勢</h2>
+    <table><thead><tr><th>月份</th><th class="right">收入</th><th class="right">薪資</th><th class="right">營運</th><th class="right">複委託</th><th class="right">淨額</th></tr></thead>
+    <tbody id="monthlyTbody"></tbody></table>
+  </div>
+</div>
+
+<script>
+let DATA = null;
+
+async function init() {
+  const r = await fetch('/api/data/archAccounting.json');
+  DATA = await r.json();
+  
+  const ys = document.getElementById('yearSel');
+  const now = new Date();
+  const rocNow = now.getFullYear() - 1911;
+  for (let y = rocNow; y >= 107; y--) {
+    ys.innerHTML += `<option value="${y}" ${y===rocNow?'selected':''}>${y}年 (${y+1911})</option>`;
+  }
+  render();
+}
+
+function render() {
+  const roc = +document.getElementById('yearSel').value;
+  const west = roc + 1911;
+  
+  // 去重 payroll
+  const seenPay = new Set();
+  const payroll = (DATA.payroll||[]).filter(p => {
+    const k = p.empName + '_' + p.month;
+    if (seenPay.has(k)) return false;
+    seenPay.add(k);
+    return true;
+  });
+
+  // 收入：按實際收款日期歸年（不按專案年份）
+  let income = 0, unpaid = 0;
+  const allProjects = DATA.projects||[];
+  const incomeDetails = [];
+  
+  function parseDate(s) {
+    if (!s) return null;
+    s = String(s).trim();
+    let m = s.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (m) return { y: +m[1], m: +m[2], d: +m[3] };
+    m = s.match(/(\d{2,3})\.(\d{1,2})\.(\d{1,2})/);
+    if (m) return { y: +m[1]+1911, m: +m[2], d: +m[3] };
+    return null;
+  }
+  
+  allProjects.forEach(p => {
+    for (let i = 1; i <= 6; i++) {
+      const dt = p['p'+i+'_date']||'';
+      const amt = p['p'+i+'_amt']||0;
+      if (dt && amt) {
+        const pd = parseDate(dt);
+        if (pd && pd.y === west) {
+          income += amt;
+          incomeDetails.push({
+            project: p.projectName||'',
+            client: p.client||'',
+            period: 'P'+i,
+            date: dt,
+            amount: amt,
+            contract: p.contractAmt||0
+          });
+        }
+      }
+    }
+  });
+  
+  // 未收：該年有收款的專案，計算剩餘
+  const touchedProjects = new Set(incomeDetails.map(d=>d.project));
+  allProjects.forEach(p => {
+    if (touchedProjects.has(p.projectName)) {
+      const totalPaid = [1,2,3,4,5,6].reduce((s,i)=>s+(p['p'+i+'_amt']||0),0);
+      unpaid += (p.contractAmt||0) - totalPaid;
+    }
+  });
+  if (unpaid < 0) unpaid = 0;
+  
+  // 用 incomeDetails 當作 projects（顯示用）
+  const projects = allProjects.filter(p => touchedProjects.has(p.projectName));
+
+  // 營運支出
+  let opex = 0;
+  (DATA.expenses||[]).forEach(e => {
+    if ((e.date||'').startsWith(String(west))) opex += (e.amount||0);
+  });
+
+  // 薪資
+  let payTotal = 0;
+  payroll.forEach(p => {
+    if ((p.month||'').startsWith(String(west))) payTotal += (p.netPay||0);
+  });
+
+  // 複委託（從 payables 讀，按付款日期歸年）
+  let vendorTotal = 0, vendorPending = 0;
+  const vendorDetails = [];
+  (DATA.payables||[]).forEach(p => {
+    if (p.category !== 'subcontractor') return;
+    if (p.status === 'paid' && p.paidDate) {
+      const pd = parseDate(p.paidDate);
+      if (pd && pd.y === west) {
+        vendorTotal += (p.amount||0);
+        vendorDetails.push(p);
+      }
+    }
+    // 統計待付（按專案年份歸，作為參考）
+    if (p.status !== 'paid') {
+      const py = p.projectYear ? (+p.projectYear + 1911) : 0;
+      if (py === west || !p.projectYear) vendorPending += (p.amount||0);
+    }
+  });
+
+  const totalExp = opex + payTotal + vendorTotal;
+  const profit = income - totalExp;
+  const margin = income ? (profit/income*100) : 0;
+
+  // Cards
+  document.getElementById('cards').innerHTML = `
+    <div class="s-card"><div class="label">📈 總收入（已收）</div><div class="value positive">$${income.toLocaleString()}</div><div class="sub">未收: $${unpaid.toLocaleString()}</div></div>
+    <div class="s-card"><div class="label">📉 總支出</div><div class="value negative">$${totalExp.toLocaleString()}</div><div class="sub">薪資 $${payTotal.toLocaleString()} + 營運 $${opex.toLocaleString()} + 委外(已付) $${vendorTotal.toLocaleString()}</div></div>
+    <div class="s-card"><div class="label">💰 淨收益</div><div class="value ${profit>=0?'positive':'negative'}">$${profit.toLocaleString()}</div><div class="sub">利潤率 ${margin.toFixed(1)}%</div></div>
+    <div class="s-card"><div class="label">⏳ 待付複委託</div><div class="value" style="color:var(--yellow)">$${vendorPending.toLocaleString()}</div><div class="sub">${(DATA.payables||[]).filter(p=>p.status!=='paid').length} 筆未付</div></div>
+    <div class="s-card"><div class="label">🏗️ 案件數</div><div class="value">${projects.length}</div><div class="sub">合約總額 $${projects.reduce((s,p)=>s+(p.contractAmt||0),0).toLocaleString()}</div></div>
+  `;
+
+  // Income table
+  const ib = document.getElementById('incomeTbody');
+  ib.innerHTML = incomeDetails.sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(d =>
+    `<tr><td>${d.project}</td><td>${d.client}</td><td>${d.period}</td><td>${d.date}</td><td class="right positive">$${d.amount.toLocaleString()}</td></tr>`
+  ).join('');
+  if (incomeDetails.length) {
+    ib.innerHTML += `<tr style="font-weight:700;border-top:2px solid var(--accent)"><td colspan="4">合計</td><td class="right positive">$${income.toLocaleString()}</td></tr>`;
+  } else {
+    ib.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-light)">無資料</td></tr>';
+  }
+
+  // Expense breakdown
+  const eb = document.getElementById('expBreakdown');
+  const catTotals = {};
+  (DATA.expenses||[]).filter(e=>(e.date||'').startsWith(String(west))).forEach(e => {
+    catTotals[e.category||'雜支'] = (catTotals[e.category||'雜支']||0) + (e.amount||0);
+  });
+  
+  eb.innerHTML = `
+    <div><h3 style="font-size:.9rem;margin-bottom:8px">💼 薪資 $${payTotal.toLocaleString()}</h3>
+    ${payroll.filter(p=>(p.month||'').startsWith(String(west))).map(p =>
+      '<div style="font-size:.8rem;color:var(--text-light)">' + p.empName + ' ' + p.month + ': $' + (p.netPay||0).toLocaleString() + '</div>'
+    ).join('') || '<div style="font-size:.8rem;color:var(--text-light)">無資料</div>'}</div>
+    <div><h3 style="font-size:.9rem;margin-bottom:8px">🏢 營運支出 $${opex.toLocaleString()}</h3>
+    ${Object.entries(catTotals).sort((a,b)=>b[1]-a[1]).map(([c,v]) =>
+      '<div style="font-size:.8rem;color:var(--text-light)">' + c + ': $' + v.toLocaleString() + '</div>'
+    ).join('') || '<div style="font-size:.8rem;color:var(--text-light)">無資料</div>'}</div>
+    <div><h3 style="font-size:.9rem;margin-bottom:8px">🤝 複委託 $${vendorTotal.toLocaleString()}</h3>
+    ${vendorDetails.map(v=>
+      '<div style="font-size:.8rem;color:var(--text-light)">' + (v.vendor||'') + ' (' + (v.subCategory||v.category||'') + '): $' + (v.amount||0).toLocaleString() + ' <span style=color:var(--green)>✓已付</span></div>'
+    )).join('') || '<div style="font-size:.8rem;color:var(--text-light)">本年無已付複委託</div>'}</div>
+  `;
+
+  // Monthly
+  const mb = document.getElementById('monthlyTbody');
+  let rows = '';
+  for (let m = 1; m <= 12; m++) {
+    const mm = String(m).padStart(2,'0');
+    const ym = west + '-' + mm;
+    let mIncome = 0;
+    allProjects.forEach(p => {
+      for (let i = 1; i <= 6; i++) {
+        const pd = p['p'+i+'_date']||'';
+        const amt = p['p'+i+'_amt']||0;
+        if (!pd || !amt) continue;
+        const d = parseDate(pd);
+        if (d && d.y === west && d.m === m) mIncome += amt;
+      }
+    });
+    let mPay = 0;
+    payroll.filter(p=>(p.month||'')===ym).forEach(p => mPay += (p.netPay||0));
+    let mOpex = 0;
+    (DATA.expenses||[]).filter(e=>(e.date||'').startsWith(ym)).forEach(e => mOpex += (e.amount||0));
+    const mNet = mIncome - mPay - mOpex;
+    if (mIncome || mPay || mOpex) {
+      rows += `<tr><td>${m}月</td><td class="right positive">$${mIncome.toLocaleString()}</td><td class="right negative">$${mPay.toLocaleString()}</td><td class="right negative">$${mOpex.toLocaleString()}</td><td class="right">-</td><td class="right ${mNet>=0?'positive':'negative'}">$${mNet.toLocaleString()}</td></tr>`;
+    }
+  }
+  mb.innerHTML = rows || '<tr><td colspan="6" style="text-align:center;color:var(--text-light)">無月度資料</td></tr>';
+}
+
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>月支出表 ─ 中華民國115年</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#dce8f5;--surface:#fff;--primary:#1a4a8a;
+  --accent:#2563eb;--accent2:#3b82f6;
+  --text:#1e3a5f;--muted:#5a7a9a;--border:#b8d0e8;
+  --pos:#1a5c2e;--neg:#c0392b;--total-bg:#cce0f5;
+}
+body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.app-header{background:var(--primary);color:#fff;padding:18px 36px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200;box-shadow:0 2px 12px rgba(0,0,0,.25);border-bottom:3px solid var(--accent2)}
+.app-header h1{font-size:17px;font-weight:600;letter-spacing:1.5px}
+.app-header .sub{font-size:12px;color:rgba(255,255,255,.6);margin-top:3px}
+.header-right{display:flex;align-items:center;gap:12px}
+.save-pill{font-size:12px;color:rgba(255,255,255,.5);padding:5px 12px;border-radius:20px;border:1px solid rgba(255,255,255,.2)}
+.save-pill.saved{color:#4ade80;border-color:rgba(74,222,128,.3)}
+.btn{padding:7px 16px;border-radius:5px;font-size:13px;cursor:pointer;border:none;font-family:'Noto Sans TC',sans-serif;font-weight:500;transition:all .15s}
+.btn-a{background:var(--accent);color:#fff}.btn-a:hover{background:#1d4ed8}
+.btn-g{background:transparent;color:rgba(255,255,255,.75);border:1px solid rgba(255,255,255,.25)}.btn-g:hover{color:#fff;border-color:rgba(255,255,255,.6)}
+.tabs{background:#e8f1fb;border-bottom:2px solid var(--border);padding:0 36px;display:flex;position:sticky;top:67px;z-index:190;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.tab{padding:13px 22px;cursor:pointer;font-size:14px;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .2s;white-space:nowrap}
+.tab:hover{color:var(--text)}.tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+.content{padding:28px 36px}.section{display:none}.section.active{display:block}
+.summary-bar{display:flex;gap:14px;margin-bottom:22px;flex-wrap:wrap}
+.s-card{background:var(--surface);border-radius:8px;padding:14px 20px;flex:1;min-width:150px;box-shadow:0 1px 4px rgba(26,74,138,.12);border-left:3px solid var(--accent)}
+.s-card .lbl{font-size:11px;color:var(--muted);margin-bottom:5px;letter-spacing:.5px}
+.s-card .val{font-size:22px;font-weight:700;color:var(--pos)}.s-card .val.neg{color:var(--neg)}.s-card .val.amb{color:var(--accent)}
+.sec-title{font-size:15px;font-weight:600;color:var(--primary);margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.sec-title::before{content:'';display:inline-block;width:4px;height:16px;background:var(--accent);border-radius:2px}
+.tbl-wrap{overflow-x:auto;margin-bottom:28px;border-radius:8px;box-shadow:0 1px 6px rgba(26,74,138,.1);border:1px solid var(--border)}
+.etbl{width:100%;border-collapse:collapse;background:var(--surface);font-size:13px;min-width:1380px}
+.etbl thead tr{background:var(--primary);color:#fff}
+.etbl th{padding:10px 6px;text-align:center;font-weight:500;font-size:12px;letter-spacing:.4px;white-space:nowrap}
+.etbl th.th-name{text-align:left;padding-left:14px;min-width:170px}.etbl th.th-id{width:36px}
+.etbl th.th-tot,.etbl th.th-pct{background:#143d78}
+.etbl tbody tr{border-bottom:1px solid #d4e6f5;transition:background .1s}.etbl tbody tr:hover{background:#eef5fc}
+.etbl td{padding:5px 4px;text-align:center;vertical-align:middle}
+.etbl td.td-id{color:var(--muted);font-size:11px}.etbl td.td-name{text-align:left;padding-left:14px;font-size:13px;line-height:1.4}
+.row-section td{background:#1a4a8a;color:#fff;font-weight:600;padding:8px 14px;font-size:13px}
+.row-total td{background:var(--total-bg);font-weight:600}
+.ci{width:70px;padding:4px 4px;text-align:right;border:1px solid transparent;border-radius:3px;background:transparent;font-family:'Noto Sans TC',sans-serif;font-size:12px;color:var(--text);transition:all .12s}
+.ci:hover{border-color:var(--border);background:#eef5fc}
+.ci:focus{border-color:var(--accent);background:#eff6ff;outline:none;box-shadow:0 0 0 2px rgba(37,99,235,.18)}
+.ci.neg-val{color:var(--neg)}
+.ct{font-size:12px;font-weight:600;padding:4px 6px;white-space:nowrap}
+.ct.pos{color:var(--pos)}.ct.neg{color:var(--neg)}.ct.amb{color:var(--accent);font-weight:700}
+.cp{color:var(--muted);font-size:11px}
+.sub-tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.stab{padding:6px 16px;border-radius:20px;cursor:pointer;font-size:13px;background:var(--surface);border:1px solid var(--border);color:var(--muted);transition:all .2s}
+.stab:hover{border-color:var(--accent);color:var(--accent)}.stab.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:500}
+.emp-sec{display:none}.emp-sec.active{display:block}
+.upload-zone{border:2px dashed var(--border);border-radius:10px;padding:20px 24px;margin-bottom:18px;background:#f0f6fe;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--accent);background:#e4effd}
+.upload-zone .uz-icon{font-size:28px;line-height:1}
+.upload-zone .uz-text{flex:1}
+.upload-zone .uz-text strong{display:block;font-size:13px;color:var(--primary);font-weight:600}
+.upload-zone .uz-text span{font-size:11px;color:var(--muted)}
+.import-log{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;min-height:0}
+.imp-badge{padding:5px 12px;border-radius:20px;font-size:12px;font-weight:500;display:flex;align-items:center;gap:6px}
+.imp-badge.ok{background:#d1fae5;color:#065f46}.imp-badge.err{background:#fee2e2;color:#991b1b}.imp-badge.warn{background:#fef3c7;color:#92400e}
+@media(max-width:768px){.content{padding:16px}.tabs{padding:0 16px}.app-header{padding:14px 16px}}
+
+.sidebar{width:260px;background:linear-gradient(180deg,#0f172a 0%,#1e293b 100%);color:#fff;position:fixed;top:0;left:0;bottom:0;display:flex;flex-direction:column;z-index:100;transition:transform .3s}
+.sidebar-header{padding:28px 20px 24px;border-bottom:1px solid rgba(255,255,255,.08);display:block;text-decoration:none;color:inherit}
+.sidebar-header h1{font-size:1.1rem;font-weight:700;letter-spacing:.5px;color:#fff}
+.sidebar-header p{font-size:.75rem;color:#94a3b8;margin-top:4px}
+.sidebar-nav{flex:1;padding:12px 0}
+.sidebar-nav a{display:flex;align-items:center;gap:12px;padding:12px 20px;color:#94a3b8;text-decoration:none;font-size:.9rem;transition:all .2s;cursor:pointer;border-left:3px solid transparent;margin:2px 0}
+.sidebar-nav a:hover{background:rgba(255,255,255,.06);color:#e2e8f0;border-left-color:rgba(79,70,229,.4)}
+.sidebar-nav a.active{background:linear-gradient(90deg,rgba(79,70,229,.2),transparent);color:#fff;border-left:3px solid #4f46e5}
+.sidebar-nav a .icon{font-size:1.2rem;width:24px;text-align:center}
+.sidebar-footer{padding:16px 20px;border-top:1px solid rgba(255,255,255,.08);font-size:.75rem;color:#475569}
+.main-with-sidebar{margin-left:260px}
+@media(max-width:768px){.sidebar{display:none}.main-with-sidebar{margin-left:0}}
+
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <a href="/index.html" class="sidebar-header">
+    <h1>張哲維建築師事務所</h1>
+    <p>會計管理系統</p>
+  </a>
+  <nav class="sidebar-nav">
+    <a href="/accounting_dashboard.html"><span class="icon">📊</span>總覽</a>
+    <a href="/accounting_dashboard.html#projects"><span class="icon">🏗️</span>案件收支</a>
+    <a href="/accounting_dashboard.html#subcontractors"><span class="icon">🤝</span>複委託管理</a>
+    <a class="active" href="/monthly_expenses.html"><span class="icon">📝</span>月支出表</a>
+    <a href="/expenses.html"><span class="icon">💰</span>月支出細項</a>
+    <a href="/accounting_dashboard.html#quotation"><span class="icon">📄</span>報價單上傳</a>
+    <a href="/accounting_dashboard.html#import"><span class="icon">📁</span>匯入資料</a>
+    <a href="/accounting_dashboard.html#settings"><span class="icon">⚙️</span>設定</a>
+  </nav>
+  <div class="sidebar-footer">v1.0 · 2026</div>
+</aside>
+
+
+<div class="main-with-sidebar">
+<div class="app-header">
+  <div>
+    <h1>⬛ 張哲維建築師事務所 月支出表</h1>
+    <div class="sub">中華民國 115 年 ／ 事務所費用管理系統</div>
+  </div>
+  <div class="header-right">
+    <div class="save-pill" id="savePill">● 自動儲存</div>
+    <button class="btn btn-g" onclick="exportJSON()">匯出 JSON</button>
+    <button class="btn btn-a" onclick="resetAll()">重設資料</button>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('main')">📊 月支出總覽</div>
+  <div class="tab" onclick="switchTab('emp')">👥 員工薪資明細</div>
+  <div class="tab" onclick="switchTab('misc')">📋 雜支</div>
+  <div class="tab" onclick="switchTab('personal')">🏠 個人支出 &amp; 盈餘</div>
+</div>
+
+<div class="content">
+  <div class="section active" id="sec-main">
+    <div class="summary-bar" id="mainSummary"></div>
+    <div class="sec-title">公司基本月固定開銷</div>
+    <div class="tbl-wrap"><table class="etbl" id="mainTbl"></table></div>
+  </div>
+  <div class="section" id="sec-emp">
+    <div class="sec-title">勞工薪資明細</div>
+    <div class="upload-zone" id="uploadZone" onclick="document.getElementById('xlsInput').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleDrop(event)">
+      <div class="uz-icon">📂</div>
+      <div class="uz-text">
+        <strong>拖曳或點擊上傳薪資條 XLS 檔案</strong>
+        <span>支援每月更新的薪資條檔案，自動比對員工姓名並更新資料（可同時上傳多個）</span>
+      </div>
+      <input type="file" id="xlsInput" accept=".xls,.xlsx" multiple style="display:none" onchange="handleFiles(this.files)">
+    </div>
+    <div class="import-log" id="importLog"></div>
+    <div class="sub-tabs" id="subTabs"></div>
+    <div id="empSecs"></div>
+    <div class="sec-title" style="margin-top:28px">員工薪資總覽</div>
+    <div class="tbl-wrap"><table class="etbl" id="empSummTbl"></table></div>
+  </div>
+  <div class="section" id="sec-misc">
+    <div class="sec-title">雜支明細</div>
+    <div class="tbl-wrap"><table class="etbl" id="miscTbl"></table></div>
+  </div>
+  <div class="section" id="sec-personal">
+    <div class="sec-title">個人支出</div>
+    <div class="tbl-wrap"><table class="etbl" id="persTbl"></table></div>
+    <div class="sec-title" style="margin-top:28px">個人盈餘（底薪 100,000 − 個人支出）</div>
+    <div class="tbl-wrap"><table class="etbl" id="surpTbl"></table></div>
+  </div>
+</div>
+
+<script>
+const MONTHS=['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+
+let mainData={items:[
+  {id:1,name:'薪資支出-建築師',v:[102368,132368,132368,132368,132368,132368,132368,132368,132368,132368,132368,132368]},
+  {id:4,name:'薪資支出-范嘉富',v:[38457,38362,null,null,null,null,null,null,null,null,null,null]},
+  {id:5,name:'薪資支出-鍾宜娟',v:[45409,46420,null,null,null,null,null,null,null,null,null,null]},
+  {id:7,name:'租金支出-租金(扣繳)',v:[130076,null,null,null,20000,20000,20000,20000,20000,20000,20000,20000]},
+  {id:8,name:'租金支出-借址(發票)',v:[1429,1429,1429,1429,1429,1429,1429,1429,1429,1429,1429,1424]},
+  {id:9,name:'文具用品',v:[3565,8191,929,5981,5271,696,8822,26076,0,2830,3014,429]},
+  {id:10,name:'郵電費',v:[4685,126,4647,11934,2082,8262,5454,2408,7981,5973,2128,9179]},
+  {id:11,name:'修繕費',v:[null,5010,null,null,null,17294,null,null,null,500,18166,700]},
+  {id:12,name:'廣告費',v:[null,null,null,null,null,null,9000,null,37500,null,10500,24900]},
+  {id:13,name:'保險費',v:[32572,28609,27177,null,null,null,null,null,null,null,12099,242]},
+  {id:14,name:'交際費',v:[70910,4272,36884,27923,36215,18227,55993,27924,7208,50231,27647,34677]},
+  {id:15,name:'捐贈',v:[null,null,100,null,null,null,null,null,null,null,null,null]},
+  {id:16,name:'稅捐',v:[null,null,null,11230,null,null,null,null,null,null,null,6180]},
+  {id:17,name:'折舊',v:[32538,32538,32538,32538,32538,32538,32538,32538,32538,32538,32538,32538]},
+  {id:18,name:'職工福利',v:[null,null,312,null,null,null,null,1180,null,null,null,null]},
+  {id:19,name:'交通費',v:[5683,1660,12889,5503,7297,1790,6884,8540,2010,8952,4788,8160]},
+  {id:20,name:'什項購置',v:[null,158550,null,null,null,null,null,null,null,null,55300,null]},
+  {id:21,name:'勞務費',v:[94341,40793,9000,26500,26500,26500,26500,26500,26500,26500,26500,26500]},
+  {id:22,name:'其他費用',v:[null,6615,null,18401,46008,29140,108626,17168,15190,18830,55976,19038]},
+  {id:23,name:'預估年終獎金、尾牙',v:[20000,20000,20000,20000,20000,20000,20000,20000,20000,20000,20000,20000]},
+  {id:24,name:'利息收入',v:[null,null,null,null,null,-1882,null,null,null,null,null,-2606]},
+  {id:25,name:'利息費用',v:[25976,25976,null,588,535,6482,6363,6245,6126,6006,5886,5766]},
+  {id:26,name:'其他費用-公會',v:[null,1514,null,null,null,null,null,21949,11498,null,15400,null]},
+  {id:27,name:'其他營業外費用',v:[null,null,null,null,890,2949,null,null,null,null,null,null]},
+  {id:28,name:'其他費用-社團',v:[20000,null,null,20000,null,21522,38556,5500,14920,null,null,null]},
+  {id:29,name:'其他費用-里果分攤費用',v:[null,null,null,59889,null,null,null,null,null,null,null,24923]},
+]};
+
+let empData={employees:[
+  {key:'zzw',name:'a. 張哲維',items:[
+    {name:'本俸底薪',v:[100000,100000,100000,100000,100000,100000,100000,100000,100000,100000,100000,100000]},
+    {name:'勞退6%保險費',v:[null,null,null,null,null,null,null,null,null,null,0,0]},
+    {name:'勞工保險費(勞保局)',v:[null,null,null,null,null,null,null,null,null,null,0,0]},
+    {name:'勞工保險費(自付額)',v:[-2544,-2544,-2544,-2544,-2544,-2544,-2544,-2544,-2544,-2544,-2544,-2544]},
+    {name:'全民健保費(公司代繳)',v:[null,null,null,null,null,null,null,null,null,null,null,null]},
+    {name:'全民健保費(自付額)',v:[-2368,-2368,-2368,-2368,-2368,-2368,-2368,-2368,-2368,-2368,-2368,-2368]},
+    {name:'聚餐',v:[null,null,null,null,null,null,3000,null,null,null,null,null]},
+    {name:'旅遊',v:[null,null,null,null,null,null,null,null,null,null,null,null]},
+  ]},
+  {key:'fjf',name:'b. 范嘉富',items:[
+    {name:'本俸底薪',v:[34800,34800,null,null,null,null,null,null,null,null,null,null]},
+    {name:'職務加給+技術加給',v:[4200,4200,null,null,null,null,null,null,null,null,null,null]},
+    {name:'加班費',v:[1517,1056,null,null,null,null,null,null,null,null,null,null]},
+    {name:'請假扣款',v:[-650,-284,null,null,null,null,null,null,null,null,null,null]},
+    {name:'勞保費(自付額)',v:[-870,-870,null,null,null,null,null,null,null,null,null,null]},
+    {name:'健保費(自付額)',v:[-540,-540,null,null,null,null,null,null,null,null,null,null]},
+    {name:'勞退6%',v:[2088,2088,null,null,null,null,null,null,null,null,null,null]},
+    {name:'代扣所得稅',v:[0,0,null,null,null,null,null,null,null,null,null,null]},
+    {name:'職業加給(獎金+專案獎金)',v:[null,null,null,null,null,null,null,null,null,null,null,null]},
+    {name:'分紅 員工獎金',v:[null,null,null,null,null,null,null,null,null,null,null,null]},
+    {name:'三節',v:[null,null,null,null,null,null,null,null,null,null,null,null]},
+    {name:'年終獎金',v:[null,null,null,null,null,null,null,null,null,null,null,null]},
+  ]},
+  {key:'zyj',name:'c. 鍾宜娟',items:[
+    {name:'本俸底薪',v:[40100,40100,null,null,null,null,null,null,null,null,null,null]},
+    {name:'職務加給+技術加給',v:[6900,6900,null,null,null,null,null,null,null,null,null,null]},
+    {name:'加班費',v:[1137,1044,null,null,null,null,null,null,null,null,null,null]},
+    {name:'請假扣款',v:[-1104,0,null,null,null,null,null,null,null,null,null,null]},
+    {name:'勞保費(自付額)',v:[-1002,-1002,null,null,null,null,null,null,null,null,null,null]},
+    {name:'健保費(自付額)',v:[-622,-622,null,null,null,null,null,null,null,null,null,null]},
+    {name:'勞退6%',v:[2406,2406,null,null,null,null,null,null,null,null,null,null]},
+    {name:'代扣所得稅',v:[0,0,null,null,null,null,null,null,null,null,null,null]},
+    {name:'職業加給(獎金+專案獎金)',v:[null,null,null,null,null,null,null,null,null,null,null,null]},
+    {name:'分紅 員工獎金',v:[null,null,null,null,null,null,null,null,null,null,null,null]},
+    {name:'三節',v:[null,null,null,null,null,null,null,null,null,null,null,null]},
+    {name:'年終獎金',v:[null,null,null,null,null,null,null,null,null,null,null,null]},
+  ]},
+  {key:'wtq',name:'d. 王騰麒(寄保)',items:[
+    {name:'本俸底薪',v:[null,null,null,null,null,null,null,null,null,null,null,null]},
+    {name:'勞退6%保險費',v:[null,null,null,null,null,null,null,null,null,null,null,null]},
+    {name:'勞工保險費(自付額)',v:[null,null,null,null,null,null,null,null,null,null,null,null]},
+    {name:'勞工保險費(公司代繳)',v:[null,null,null,null,null,null,null,null,null,null,null,null]},
+    {name:'全民健保費(公司代繳)',v:[null,null,null,null,null,null,null,null,null,null,null,null]},
+    {name:'全民健保費(自付額)',v:[null,null,null,null,null,null,null,null,null,null,null,null]},
+    {name:'請假',v:[null,null,null,null,null,null,null,null,null,null,null,null]},
+    {name:'加班',v:[null,null,null,null,null,null,null,null,null,null,null,null]},
+    {name:'職業加給(獎金+專案獎金)',v:[null,null,null,null,null,null,null,null,null,null,null,null]},
+    {name:'分紅 員工獎金',v:[null,null,null,null,null,null,null,null,null,null,null,null]},
+    {name:'三節',v:[null,null,null,null,null,null,null,null,null,null,null,null]},
+    {name:'聚餐',v:[null,null,null,null,null,null,null,null,null,null,null,null]},
+    {name:'旅遊津貼',v:[null,null,null,null,null,null,null,null,null,null,null,null]},
+    {name:'年終獎金',v:[null,null,null,null,null,null,null,null,null,null,null,null]},
+  ]},
+],ins:{
+  health:{name:'每月健保(單位)',v:[5125,6454,5125,5125,5125,5125,5125,0,0,0,0,0]},
+  labor:{name:'每月勞保(單位)',v:[9046,10298,9046,9046,9046,9046,9046,0,0,0,0,0]},
+  pension:{name:'每月勞退(單位)',v:[6354,8002,6354,6354,6354,6354,6354,0,0,0,0,0]},
+}};
+
+let miscData={items:[
+  {id:1,name:'外地餐費',v:[null,null,null,null,null,null,null,null,null,null,null,null]},
+  {id:2,name:'上課',v:[null,null,null,null,null,null,null,null,null,null,null,null]},
+  {id:3,name:'買書',v:[null,null,null,null,null,null,null,null,null,null,null,null]},
+  {id:4,name:'影印裝訂',v:[null,268,2054,null,null,null,null,null,null,11000,null,null]},
+  {id:5,name:'文具',v:[null,96,281,null,null,null,null,null,null,null,null,null]},
+  {id:6,name:'郵寄',v:[null,32,null,null,null,null,null,null,null,null,null,null]},
+  {id:7,name:'其它(3c,桌椅….)',v:[null,null,null,null,null,null,null,0,null,null,0,4830]},
+]};
+
+let persData={items:[
+  {id:1,name:'小孩學費',v:[25000,11150,10000,25000,10000,12750,9810,16700,10000,13538,32675,14100]},
+  {id:2,name:'卡費',v:[17578,17578,17578,17578,17578,17578,17578,17578,6193,17578,17578,17578]},
+  {id:3,name:'家裡網路費+MOD(第四台)',v:[999,999,999,999,999,999,999,999,999,999,999,999]},
+  {id:4,name:'餐費',v:[20000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000]},
+  {id:5,name:'其他',v:[21000,21000,21000,21000,21000,21000,21000,21000,21000,21000,21000,21000]},
+  {id:6,name:'旅遊',v:[null,null,null,null,null,null,null,null,null,null,null,1320]},
+  {id:7,name:'房租+老婆費用',v:[25000,25000,25000,25000,25000,25000,25000,25000,25000,25000,25000,25000]},
+]};
+
+/* helpers */
+const n=x=>(x===null||x===undefined||x==='')?0:+x;
+const rS=a=>a.reduce((s,x)=>s+n(x),0);
+const cS=(items,c)=>items.reduce((s,it)=>s+n(it.v[c]),0);
+function fm(x){if(x===null||x===undefined||x==='')return'';const v=+x;return isNaN(v)?'':v.toLocaleString('zh-TW')}
+const fp=p=>(p*100).toFixed(2)+'%';
+const SKEY='exp115v4';
+
+function doSave(){
+  try{
+    localStorage.setItem(SKEY,JSON.stringify({mainData,empData,miscData,persData}));
+    const p=document.getElementById('savePill');p.textContent='✓ 已儲存';p.className='save-pill saved';
+    clearTimeout(p._t);p._t=setTimeout(()=>{p.textContent='● 自動儲存';p.className='save-pill'},2200);
+  }catch(e){}
+}
+function doLoad(){
+  try{const s=localStorage.getItem(SKEY);if(s){const d=JSON.parse(s);if(d.mainData)mainData=d.mainData;if(d.empData)empData=d.empData;if(d.miscData)miscData=d.miscData;if(d.persData)persData=d.persData;}}catch(e){}
+}
+
+const TABS=['main','emp','misc','personal'];
+function switchTab(name){
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',TABS[i]===name));
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.getElementById('sec-'+name).classList.add('active');
+}
+
+function mkHead(showId=true){
+  const thead=document.createElement('thead');const tr=document.createElement('tr');
+  if(showId)tr.innerHTML+=`<th class="th-id">序</th>`;
+  tr.innerHTML+=`<th class="th-name">項目</th>`;
+  MONTHS.forEach(m=>tr.innerHTML+=`<th>${m}</th>`);
+  tr.innerHTML+=`<th class="th-tot">合計</th><th class="th-pct">百分比</th>`;
+  thead.appendChild(tr);return thead;
+}
+
+function mkInput(val,cb){
+  const inp=document.createElement('input');inp.type='text';
+  inp.className='ci'+(val<0?' neg-val':'');
+  inp.value=val!==null?fm(val):'';
+  inp.addEventListener('focus',e=>e.target.select());
+  inp.addEventListener('change',e=>{
+    const raw=e.target.value.replace(/,/g,'').trim();
+    const num=raw===''?null:+raw;
+    e.target.value=num!==null?fm(num):'';
+    e.target.className='ci'+(num<0?' neg-val':'');
+    cb(isNaN(num)?null:num);
+  });
+  return inp;
+}
+
+/* MAIN */
+function renderMain(){
+  const tbl=document.getElementById('mainTbl');tbl.innerHTML='';tbl.appendChild(mkHead());
+  const tbody=document.createElement('tbody');
+  const gt0=mainData.items.reduce((s,it)=>s+rS(it.v),0);
+  mainData.items.forEach((item,ri)=>{
+    const tr=document.createElement('tr');const rT=rS(item.v);
+    tr.innerHTML=`<td class="td-id">${item.id}</td><td class="td-name">${item.name}</td>`;
+    item.v.forEach((cv,ci)=>{const td=document.createElement('td');td.appendChild(mkInput(cv,num=>{mainData.items[ri].v[ci]=num;updMain();doSave();}));tr.appendChild(td);});
+    const ttd=document.createElement('td');ttd.className=`ct ${rT>=0?'pos':'neg'}`;ttd.id=`mr${ri}`;ttd.textContent=fm(rT);tr.appendChild(ttd);
+    const ptd=document.createElement('td');ptd.className='cp';ptd.id=`mp${ri}`;ptd.textContent=gt0?fp(rT/gt0):'0.00%';tr.appendChild(ptd);
+    tbody.appendChild(tr);
+  });
+  const tr=document.createElement('tr');tr.className='row-total';
+  tr.innerHTML=`<td></td><td class="td-name" style="font-weight:700">總計</td>`;
+  let gt=0;for(let c=0;c<12;c++){const ct=cS(mainData.items,c);gt+=ct;tr.innerHTML+=`<td class="ct ${ct>=0?'pos':'neg'}" id="mc${c}">${fm(ct)}</td>`;}
+  tr.innerHTML+=`<td class="ct pos" id="mgt">${fm(gt)}</td><td></td>`;
+  tbody.appendChild(tr);tbl.appendChild(tbody);updMainCard(gt);
+}
+function updMain(){
+  const gt=mainData.items.reduce((s,it)=>s+rS(it.v),0);
+  mainData.items.forEach((item,ri)=>{
+    const rT=rS(item.v);const e1=document.getElementById(`mr${ri}`);if(e1){e1.textContent=fm(rT);e1.className=`ct ${rT>=0?'pos':'neg'}`;}
+    const e2=document.getElementById(`mp${ri}`);if(e2)e2.textContent=gt?fp(rT/gt):'0.00%';
+  });
+  let gx=0;for(let c=0;c<12;c++){const ct=cS(mainData.items,c);gx+=ct;const e=document.getElementById(`mc${c}`);if(e){e.textContent=fm(ct);e.className=`ct ${ct>=0?'pos':'neg'}`;}}
+  const ge=document.getElementById('mgt');if(ge)ge.textContent=fm(gx);updMainCard(gx);
+}
+function updMainCard(gt){
+  const mx=Math.max(...Array.from({length:12},(_,c)=>cS(mainData.items,c)));
+  document.getElementById('mainSummary').innerHTML=`
+    <div class="s-card"><div class="lbl">年度公司總支出</div><div class="val">${fm(Math.round(gt))}</div></div>
+    <div class="s-card"><div class="lbl">月均支出</div><div class="val amb">${fm(Math.round(gt/12))}</div></div>
+    <div class="s-card"><div class="lbl">單月最高支出</div><div class="val">${fm(mx)}</div></div>`;
+}
+
+/* EMPLOYEES */
+function renderEmpTabs(){
+  const stabs=document.getElementById('subTabs');const secs=document.getElementById('empSecs');stabs.innerHTML='';secs.innerHTML='';
+  empData.employees.forEach((emp,ei)=>{
+    const tab=document.createElement('div');tab.className='stab'+(ei===0?' active':'');tab.textContent=emp.name;tab.onclick=()=>switchEmp(ei);stabs.appendChild(tab);
+    const sec=document.createElement('div');sec.className='emp-sec'+(ei===0?' active':'');sec.id='esec'+ei;
+    const wrap=document.createElement('div');wrap.className='tbl-wrap';
+    const tbl=document.createElement('table');tbl.className='etbl';tbl.id='etbl'+ei;
+    buildEmpTbl(tbl,emp,ei);wrap.appendChild(tbl);sec.appendChild(wrap);secs.appendChild(sec);
+  });
+  renderEmpSumm();
+}
+function switchEmp(ei){
+  document.querySelectorAll('.stab').forEach((t,i)=>t.classList.toggle('active',i===ei));
+  document.querySelectorAll('.emp-sec').forEach((s,i)=>s.classList.toggle('active',i===ei));
+}
+function buildEmpTbl(tbl,emp,ei){
+  tbl.innerHTML='';
+  const thead=document.createElement('thead');const hr=document.createElement('tr');
+  hr.innerHTML=`<th class="th-name">項目</th>`;
+  MONTHS.forEach(m=>hr.innerHTML+=`<th>${m}</th>`);hr.innerHTML+=`<th class="th-tot">合計</th><th class="th-pct">百分比</th>`;
+  thead.appendChild(hr);tbl.appendChild(thead);
+  const tbody=document.createElement('tbody');
+  const eT=emp.items.reduce((s,it)=>s+rS(it.v),0);
+  emp.items.forEach((item,ri)=>{
+    const tr=document.createElement('tr');const rT=rS(item.v);
+    tr.innerHTML=`<td class="td-name">${item.name}</td>`;
+    item.v.forEach((cv,ci)=>{const td=document.createElement('td');td.appendChild(mkInput(cv,num=>{empData.employees[ei].items[ri].v[ci]=num;updEmp(ei);renderEmpSumm();doSave();}));tr.appendChild(td);});
+    const ttd=document.createElement('td');ttd.className=`ct ${rT>=0?'pos':'neg'}`;ttd.id=`e${ei}r${ri}`;ttd.textContent=fm(rT);tr.appendChild(ttd);
+    const ptd=document.createElement('td');ptd.className='cp';ptd.id=`e${ei}p${ri}`;ptd.textContent=eT?fp(rT/eT):'0.00%';tr.appendChild(ptd);
+    tbody.appendChild(tr);
+  });
+  const tr=document.createElement('tr');tr.className='row-total';
+  tr.innerHTML=`<td class="td-name" style="font-weight:700">單位總計</td>`;
+  for(let c=0;c<12;c++){const ct=cS(emp.items,c);tr.innerHTML+=`<td class="ct ${ct>=0?'pos':'neg'}" id="e${ei}c${c}">${fm(ct)}</td>`;}
+  tr.innerHTML+=`<td class="ct pos" id="e${ei}gt">${fm(eT)}</td><td></td>`;
+  tbody.appendChild(tr);tbl.appendChild(tbody);
+}
+function updEmp(ei){
+  const emp=empData.employees[ei];const eT=emp.items.reduce((s,it)=>s+rS(it.v),0);
+  emp.items.forEach((item,ri)=>{
+    const rT=rS(item.v);const e1=document.getElementById(`e${ei}r${ri}`);if(e1){e1.textContent=fm(rT);e1.className=`ct ${rT>=0?'pos':'neg'}`;}
+    const e2=document.getElementById(`e${ei}p${ri}`);if(e2)e2.textContent=eT?fp(rT/eT):'0.00%';
+  });
+  for(let c=0;c<12;c++){const ct=cS(emp.items,c);const e=document.getElementById(`e${ei}c${c}`);if(e){e.textContent=fm(ct);e.className=`ct ${ct>=0?'pos':'neg'}`;}}
+  const ge=document.getElementById(`e${ei}gt`);if(ge)ge.textContent=fm(eT);
+}
+function renderEmpSumm(){
+  const tbl=document.getElementById('empSummTbl');tbl.innerHTML='';
+  const thead=document.createElement('thead');const hr=document.createElement('tr');
+  hr.innerHTML=`<th class="th-name">項目</th>`;MONTHS.forEach(m=>hr.innerHTML+=`<th>${m}</th>`);hr.innerHTML+=`<th class="th-tot">合計</th>`;
+  thead.appendChild(hr);tbl.appendChild(thead);const tbody=document.createElement('tbody');
+  empData.employees.forEach(emp=>{
+    const tr=document.createElement('tr');const et=emp.items.reduce((s,it)=>s+rS(it.v),0);
+    tr.innerHTML=`<td class="td-name" style="font-weight:500">${emp.name}</td>`;
+    for(let c=0;c<12;c++){const ct=cS(emp.items,c);tr.innerHTML+=`<td class="ct ${ct>=0?'pos':'neg'}">${fm(ct)}</td>`;}
+    tr.innerHTML+=`<td class="ct pos">${fm(et)}</td>`;tbody.appendChild(tr);
+  });
+  ['health','labor','pension'].forEach(k=>{
+    const ins=empData.ins[k];const tr=document.createElement('tr');
+    tr.innerHTML=`<td class="td-name">${ins.name}</td>`;
+    ins.v.forEach(vv=>tr.innerHTML+=`<td class="ct ${vv>=0?'pos':'neg'}">${fm(vv)}</td>`);
+    tr.innerHTML+=`<td class="ct pos">${fm(rS(ins.v))}</td>`;tbody.appendChild(tr);
+  });
+  const insTr=document.createElement('tr');insTr.className='row-total';insTr.innerHTML=`<td class="td-name" style="font-weight:700">保險費合計</td>`;
+  let igt=0;for(let c=0;c<12;c++){const t=n(empData.ins.health.v[c])+n(empData.ins.labor.v[c])+n(empData.ins.pension.v[c]);igt+=t;insTr.innerHTML+=`<td class="ct pos">${fm(t)}</td>`;}
+  insTr.innerHTML+=`<td class="ct pos">${fm(igt)}</td>`;tbody.appendChild(insTr);
+  const gtTr=document.createElement('tr');gtTr.className='row-total';gtTr.innerHTML=`<td class="td-name" style="font-weight:700;color:var(--accent)">每月員工總支出</td>`;
+  let grandT=0;for(let c=0;c<12;c++){
+    const et=empData.employees.reduce((s,em)=>s+cS(em.items,c),0);
+    const it=n(empData.ins.health.v[c])+n(empData.ins.labor.v[c])+n(empData.ins.pension.v[c]);
+    const ct=et+it;grandT+=ct;gtTr.innerHTML+=`<td class="ct amb">${fm(ct)}</td>`;
+  }
+  gtTr.innerHTML+=`<td class="ct amb">${fm(grandT)}</td>`;tbody.appendChild(gtTr);tbl.appendChild(tbody);
+}
+
+/* MISC */
+function renderMisc(){
+  const tbl=document.getElementById('miscTbl');tbl.innerHTML='';tbl.appendChild(mkHead());
+  const tbody=document.createElement('tbody');const mT=miscData.items.reduce((s,it)=>s+rS(it.v),0);
+  miscData.items.forEach((item,ri)=>{
+    const tr=document.createElement('tr');const rT=rS(item.v);
+    tr.innerHTML=`<td class="td-id">${item.id}</td><td class="td-name">${item.name}</td>`;
+    item.v.forEach((cv,ci)=>{const td=document.createElement('td');td.appendChild(mkInput(cv,num=>{miscData.items[ri].v[ci]=num;updMisc();doSave();}));tr.appendChild(td);});
+    const ttd=document.createElement('td');ttd.className=`ct ${rT>=0?'pos':'neg'}`;ttd.id=`miscr${ri}`;ttd.textContent=fm(rT);tr.appendChild(ttd);
+    const ptd=document.createElement('td');ptd.className='cp';ptd.id=`miscp${ri}`;ptd.textContent=mT?fp(rT/mT):'0.00%';tr.appendChild(ptd);tbody.appendChild(tr);
+  });
+  const tr=document.createElement('tr');tr.className='row-total';tr.innerHTML=`<td></td><td class="td-name" style="font-weight:700">總計</td>`;
+  let gt=0;for(let c=0;c<12;c++){const ct=cS(miscData.items,c);gt+=ct;tr.innerHTML+=`<td class="ct pos" id="miscc${c}">${fm(ct)}</td>`;}
+  tr.innerHTML+=`<td class="ct pos" id="miscgt">${fm(gt)}</td><td></td>`;tbody.appendChild(tr);tbl.appendChild(tbody);
+}
+function updMisc(){
+  const mT=miscData.items.reduce((s,it)=>s+rS(it.v),0);
+  miscData.items.forEach((item,ri)=>{
+    const rT=rS(item.v);const e1=document.getElementById(`miscr${ri}`);if(e1){e1.textContent=fm(rT);e1.className=`ct ${rT>=0?'pos':'neg'}`;}
+    const e2=document.getElementById(`miscp${ri}`);if(e2)e2.textContent=mT?fp(rT/mT):'0.00%';
+  });
+  let gt=0;for(let c=0;c<12;c++){const ct=cS(miscData.items,c);gt+=ct;const e=document.getElementById(`miscc${c}`);if(e)e.textContent=fm(ct);}
+  const ge=document.getElementById('miscgt');if(ge)ge.textContent=fm(gt);
+}
+
+/* PERSONAL */
+function renderPers(){
+  const tbl=document.getElementById('persTbl');tbl.innerHTML='';tbl.appendChild(mkHead());
+  const tbody=document.createElement('tbody');const pT=persData.items.reduce((s,it)=>s+rS(it.v),0);
+  persData.items.forEach((item,ri)=>{
+    const tr=document.createElement('tr');const rT=rS(item.v);
+    tr.innerHTML=`<td class="td-id">${item.id}</td><td class="td-name">${item.name}</td>`;
+    item.v.forEach((cv,ci)=>{const td=document.createElement('td');td.appendChild(mkInput(cv,num=>{persData.items[ri].v[ci]=num;updPers();doSave();}));tr.appendChild(td);});
+    const ttd=document.createElement('td');ttd.className=`ct ${rT>=0?'pos':'neg'}`;ttd.id=`persr${ri}`;ttd.textContent=fm(rT);tr.appendChild(ttd);
+    const ptd=document.createElement('td');ptd.className='cp';ptd.id=`persp${ri}`;ptd.textContent=pT?fp(rT/pT):'0.00%';tr.appendChild(ptd);tbody.appendChild(tr);
+  });
+  const tr=document.createElement('tr');tr.className='row-total';tr.innerHTML=`<td></td><td class="td-name" style="font-weight:700">總計</td>`;
+  let gt=0;for(let c=0;c<12;c++){const ct=cS(persData.items,c);gt+=ct;tr.innerHTML+=`<td class="ct pos" id="persc${c}">${fm(ct)}</td>`;}
+  tr.innerHTML+=`<td class="ct pos" id="persgt">${fm(gt)}</td><td></td>`;tbody.appendChild(tr);tbl.appendChild(tbody);
+  renderSurplus();
+}
+function updPers(){
+  const pT=persData.items.reduce((s,it)=>s+rS(it.v),0);
+  persData.items.forEach((item,ri)=>{
+    const rT=rS(item.v);const e1=document.getElementById(`persr${ri}`);if(e1){e1.textContent=fm(rT);e1.className=`ct ${rT>=0?'pos':'neg'}`;}
+    const e2=document.getElementById(`persp${ri}`);if(e2)e2.textContent=pT?fp(rT/pT):'0.00%';
+  });
+  let gt=0;for(let c=0;c<12;c++){const ct=cS(persData.items,c);gt+=ct;const e=document.getElementById(`persc${c}`);if(e)e.textContent=fm(ct);}
+  const ge=document.getElementById('persgt');if(ge)ge.textContent=fm(gt);renderSurplus();
+}
+function renderSurplus(){
+  const tbl=document.getElementById('surpTbl');tbl.innerHTML='';
+  const thead=document.createElement('thead');const hr=document.createElement('tr');
+  hr.innerHTML=`<th class="th-name">項目</th>`;MONTHS.forEach(m=>hr.innerHTML+=`<th>${m}</th>`);hr.innerHTML+=`<th class="th-tot">年總盈餘</th>`;
+  thead.appendChild(hr);tbl.appendChild(thead);
+  const tbody=document.createElement('tbody');const SALARY=100000;
+  const tr=document.createElement('tr');tr.innerHTML=`<td class="td-name" style="font-weight:500">個人盈餘 (底薪 100,000 − 個人支出)</td>`;
+  let yr=0;for(let c=0;c<12;c++){const sp=SALARY-cS(persData.items,c);yr+=sp;const td=document.createElement('td');td.className=`ct ${sp>=0?'pos':'neg'}`;td.textContent=fm(sp);tr.appendChild(td);}
+  const ytd=document.createElement('td');ytd.className=`ct ${yr>=0?'pos':'neg'}`;ytd.style.fontWeight='700';ytd.textContent=fm(yr);tr.appendChild(ytd);
+  tbody.appendChild(tr);tbl.appendChild(tbody);
+}
+
+
+/* ── XLS 薪資條匯入 ── */
+function handleDrop(e){
+  e.preventDefault();document.getElementById('uploadZone').classList.remove('drag');
+  handleFiles(e.dataTransfer.files);
+}
+function handleFiles(files){
+  Array.from(files).forEach(f=>{
+    const reader=new FileReader();
+    reader.onload=ev=>processXLS(ev.target.result,f.name);
+    reader.readAsArrayBuffer(f);
+  });
+}
+function processXLS(buf, fname){
+  const log=document.getElementById('importLog');
+  try{
+    const wb=XLSX.read(new Uint8Array(buf),{type:'array'});
+    // ── 讀 支領表 ──
+    const wsName=wb.SheetNames.find(s=>s==='支領表');
+    if(!wsName){addBadge(log,'err',`❌ ${fname}：找不到「支領表」工作表`);return;}
+    const ws=wb.Sheets[wsName];
+    const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
+
+    // 取員工姓名
+    let empName=null;
+    for(const r of rows){
+      if(r[3]==='姓名：'&&r[4]){empName=String(r[4]).trim();break;}
+    }
+    if(!empName){addBadge(log,'err',`❌ ${fname}：無法讀取員工姓名`);return;}
+
+    // 取每月支出薪資
+    const monthly=new Array(12).fill(null);
+    const extras={}; // 年終/三節獎金 → 存入對應月份
+    const BONUS_MONTH={'114年終獎金':1,'年終獎金':1,'開工獎金':2,'端午獎金':6,'中秋獎金':9};
+    for(const r of rows){
+      const col0=r[0],col1=r[1],col2=r[2];
+      if(typeof col0==='number'&&col0>=1&&col0<=12&&col1==='月'&&col2!=null){
+        monthly[col0-1]=Math.round(+col2);
+      }
+      if(typeof col0==='string'){
+        const bKey=Object.keys(BONUS_MONTH).find(k=>col0.includes(k.replace('114','')));
+        if(bKey&&col2!=null){
+          const bm=BONUS_MONTH[bKey]-1;
+          extras[bm]=(extras[bm]||0)+Math.round(+col2);
+        }
+      }
+    }
+
+    // 將獎金加進對應月份
+    Object.entries(extras).forEach(([m,v])=>{if(monthly[+m]!=null)monthly[+m]+=v;else monthly[+m]=v;});
+
+    // 比對員工
+    const ei=empData.employees.findIndex(emp=>{
+      const clean=emp.name.replace(/^[a-z]\.\s*/,'').replace(/[（(].*[)）]/,'').trim();
+      return clean===empName||clean.includes(empName)||empName.includes(clean);
+    });
+    if(ei<0){addBadge(log,'warn',`⚠️ ${empName}：找不到對應員工（${fname}）`);return;}
+
+    // 更新 empData：單筆「薪資條月總計」
+    empData.employees[ei].items=[
+      {name:`薪資合計 (薪資條匯入)`,v:[...monthly]}
+    ];
+
+    // 更新 mainData 對應列
+    const mi=mainData.items.findIndex(it=>it.name.includes(empName));
+    if(mi>=0) mainData.items[mi].v=[...monthly];
+
+    // 重新渲染
+    renderEmpTabs();renderMain();doSave();
+    const filled=monthly.filter(v=>v!=null).length;
+    addBadge(log,'ok',`✅ ${empName}：已匯入 ${filled} 個月份`);
+  }catch(err){
+    addBadge(log,'err',`❌ ${fname}：解析失敗 (${err.message})`);
+  }
+}
+function addBadge(log,cls,txt){
+  const d=document.createElement('div');d.className=`imp-badge ${cls}`;d.textContent=txt;log.appendChild(d);
+}
+
+/* EXPORT / RESET */
+function exportJSON(){
+  const b=new Blob([JSON.stringify({mainData,empData,miscData,persData},null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='月支出_115年v2.json';a.click();
+}
+function resetAll(){if(confirm('確定要重設所有資料回初始值？此操作無法還原。')){localStorage.removeItem(SKEY);location.reload();}}
+
+/* INIT */
+doLoad();renderMain();renderEmpTabs();renderMisc();renderPers();
+</script>
+</div>
+</body>
+</html>
