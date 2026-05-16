@@ -2763,22 +2763,37 @@ function _updateBatchStatus(i){
 }
 
 function confirmBatchProjectImport(){
-  const toImport=_batchProjectItems.filter(d=>d._checked);
-  if(!toImport.length){toast('未勾選任何案件','error');return;}
-  toImport.forEach(d=>{
-    const bno=d.businessNo||d.caseNo||'';
-    const yr=d.year||(bno.length>=3?bno.slice(0,3):'');
-    const pname=d.projectName||d.name||'';
-    const p={id:uid(),year:yr,businessNo:bno,projectName:pname,client:d.client||'',location:d.location||'',
-      contractAmt:Number(d.contractAmt)||0,subcontractor:d.subcontractor||''};
-    for(let i=1;i<=8;i++){p['p'+i+'_amt']=Number(d['p'+i+'_amt'])||0;p['p'+i+'_date']=d['p'+i+'_date']||'';p['p'+i+'_method']=d['p'+i+'_method']||'';}
-    DB.projects.push(p);
-  });
-  saveData();
-  closeBatchContractPanel();
-  renderProjects();
-  toast(`已匯入 ${toImport.length} 筆案件`);
-  _batchProjectItems=[];
+  try {
+    const toImport=_batchProjectItems.filter(d=>d._checked);
+    if(!toImport.length){toast('未勾選任何案件','error');return;}
+    let pushed=0;
+    toImport.forEach((d,idx)=>{
+      try {
+        const bno=d.businessNo||d.caseNo||'';
+        const yr=d.year||(bno.length>=3?bno.slice(0,3):'');
+        const pname=d.projectName||d.name||'';
+        const p={id:uid(),year:yr,businessNo:bno,projectName:pname,client:d.client||'',location:d.location||'',
+          contractAmt:Number(d.contractAmt)||0,subcontractor:d.subcontractor||''};
+        for(let i=1;i<=8;i++){p['p'+i+'_amt']=Number(d['p'+i+'_amt'])||0;p['p'+i+'_date']=d['p'+i+'_date']||'';p['p'+i+'_method']=d['p'+i+'_method']||'';}
+        DB.projects.push(p);
+        pushed++;
+      } catch(itemErr) {
+        console.error('[匯入失敗-項目'+(idx+1)+']', itemErr, d);
+        alert('第 '+(idx+1)+' 筆匯入失敗：\n'+(itemErr.message||itemErr)+'\n\n項目資料：\n'+JSON.stringify({name:d.projectName||d.name,bno:d.businessNo,amt:d.contractAmt},null,2));
+      }
+    });
+    saveData();
+    closeBatchContractPanel();
+    // 清除年份/搜尋過濾，確保新匯入的看得見
+    const yf=document.getElementById('projYearFilter');if(yf)yf.value='';
+    const ps=document.getElementById('projSearch');if(ps)ps.value='';
+    renderProjects();
+    toast(`已匯入 ${pushed} 筆案件（共 ${toImport.length} 筆嘗試）`);
+    _batchProjectItems=[];
+  } catch(e) {
+    console.error('[confirmBatchProjectImport 整體失敗]', e);
+    alert('匯入過程出錯，請截圖此訊息給開發者：\n\n'+(e.message||e)+'\n\n位置：\n'+(e.stack||'').split('\n').slice(0,4).join('\n'));
+  }
 }
 
 function closeBatchContractPanel(){
