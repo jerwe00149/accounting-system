@@ -1,0 +1,34 @@
+name: Deploy to Cloudflare Pages
+
+# Auto-deploys the accounting-pages/ directory to the arch-accounting Cloudflare Pages
+# project whenever main is pushed (or on manual dispatch).
+#
+# Required repo secret:
+#   CLOUDFLARE_API_TOKEN — token with "Cloudflare Pages: Edit" permission.
+#     Create at https://dash.cloudflare.com/profile/api-tokens (template: "Edit Cloudflare Pages")
+#     then add it under repo → Settings → Secrets and variables → Actions.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'accounting-pages/**'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: 9145b005da7045e103f94704bc2038c6
+          command: pages deploy accounting-pages --project-name=arch-accounting --branch=main --commit-dirty=true
