@@ -38,6 +38,9 @@ jobs:
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
+        env:
+          WRANGLER_SEND_METRICS: 'false'
+          NO_COLOR: '1'
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: 9145b005da7045e103f94704bc2038c6
