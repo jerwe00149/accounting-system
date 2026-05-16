@@ -44,4 +44,3 @@ jobs:
           projectName: arch-accounting
           directory: accounting-pages
           branch: main
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
