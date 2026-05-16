@@ -9,11 +9,10 @@ name: Deploy to Cloudflare Pages
 #     then add it under repo → Settings → Secrets and variables → Actions.
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'accounting-pages/**'
-      - '.github/workflows/deploy.yml'
+  # Auto-deploy on push is currently disabled — Cloudflare's wrangler-action
+  # (and pages-action) hit a Node undici fetch ByteString error on this repo
+  # that we couldn't pin down. Local `wrangler pages deploy` works fine, so
+  # for now deploy manually from a laptop/desktop.
   workflow_dispatch:
 
 jobs:
