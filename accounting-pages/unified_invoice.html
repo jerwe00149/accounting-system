@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>統一發票生成器 — 張哲維建築師事務所</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=Noto+Serif+TC:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--accent:#2c5aa0;--bg:#f0f2f5;--card:#fff;--text:#1a1a1a;--muted:#666;--border:#ddd;--radius:8px}
+body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+.container{max-width:1100px;margin:0 auto;padding:20px}
+h1{text-align:center;color:var(--accent);margin-bottom:24px;font-size:1.6rem}
+
+.layout{display:grid;grid-template-columns:420px 1fr;gap:24px}
+@media(max-width:900px){.layout{grid-template-columns:1fr}}
+
+/* Form Panel */
+.form-panel{background:var(--card);border-radius:var(--radius);padding:24px;box-shadow:0 2px 8px rgba(0,0,0,.08);height:fit-content;position:sticky;top:20px}
+.form-panel h3{font-size:1rem;color:var(--accent);margin:16px 0 8px;padding-bottom:4px;border-bottom:2px solid var(--accent)}
+.form-panel h3:first-child{margin-top:0}
+.fg{margin-bottom:10px}
+.fg label{display:block;font-size:.8rem;color:var(--muted);margin-bottom:3px;font-weight:500}
+.fg input,.fg select,.fg textarea{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:5px;font-size:.9rem;font-family:inherit}
+.fg input:focus,.fg select:focus{outline:none;border-color:var(--accent)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row3{display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px}
+
+/* Items */
+.item-row{display:grid;grid-template-columns:2.5fr 1fr 1fr 1fr 36px;gap:6px;align-items:end;margin-bottom:6px}
+.item-row input{padding:6px 8px;font-size:.85rem}
+.item-row .computed{background:#f7f7f7;text-align:right;font-weight:600}
+.btn-del{background:#e74c3c;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:1rem;padding:4px 8px}
+.btn-del:hover{background:#c0392b}
+
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border:none;border-radius:var(--radius);font-family:inherit;font-size:.85rem;font-weight:600;cursor:pointer;transition:all .15s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:#1e4080}
+.btn-success{background:#27ae60;color:#fff}.btn-success:hover{background:#1e8449}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}.btn-outline:hover{background:#f5f5f5}
+.btn-group{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+
+/* === Invoice Preview === */
+.preview-panel{background:var(--card);border-radius:var(--radius);padding:0;box-shadow:0 2px 8px rgba(0,0,0,.08);overflow:hidden}
+
+.invoice-page{padding:40px 48px;font-family:'Noto Serif TC','Noto Sans TC',serif;position:relative}
+.invoice-page::before{content:'';position:absolute;top:0;left:0;right:0;height:6px;background:linear-gradient(90deg,var(--accent),#1abc9c)}
+
+.inv-header{text-align:center;margin-bottom:24px}
+.inv-title{font-size:1.8rem;font-weight:700;letter-spacing:6px;color:var(--text)}
+.inv-subtitle{font-size:.85rem;color:var(--muted);margin-top:4px}
+.inv-type{display:inline-block;margin-top:8px;padding:3px 16px;border:2px solid var(--accent);color:var(--accent);font-weight:700;font-size:.9rem;letter-spacing:2px;border-radius:4px}
+
+.inv-info{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;font-size:.88rem}
+.inv-info-box{border:1px solid #e0e0e0;border-radius:6px;padding:14px}
+.inv-info-box h4{font-size:.78rem;color:var(--accent);margin-bottom:8px;letter-spacing:1px}
+.inv-info-row{display:flex;margin-bottom:4px}
+.inv-info-row .lbl{width:70px;color:var(--muted);flex-shrink:0;font-size:.82rem}
+.inv-info-row .val{font-weight:500;font-size:.85rem}
+
+.inv-meta{display:flex;justify-content:space-between;margin-bottom:16px;font-size:.85rem;color:var(--muted)}
+
+/* Table */
+.inv-table{width:100%;border-collapse:collapse;margin-bottom:16px;font-size:.88rem}
+.inv-table th{background:var(--accent);color:#fff;padding:10px 12px;text-align:center;font-weight:600;font-size:.82rem;letter-spacing:1px}
+.inv-table th:first-child{text-align:left}
+.inv-table td{padding:9px 12px;border-bottom:1px solid #eee}
+.inv-table td:first-child{text-align:left}
+.inv-table td:not(:first-child){text-align:right;font-family:'Noto Sans TC',sans-serif}
+.inv-table tbody tr:hover{background:#f9fbff}
+
+.inv-summary{display:flex;justify-content:flex-end;margin-bottom:20px}
+.inv-summary table{border-collapse:collapse;font-size:.9rem;min-width:280px}
+.inv-summary td{padding:6px 12px}
+.inv-summary td:first-child{color:var(--muted);text-align:right;padding-right:20px}
+.inv-summary td:last-child{text-align:right;font-weight:600;font-family:'Noto Sans TC',sans-serif}
+.inv-summary .total-row td{font-size:1.15rem;color:var(--accent);border-top:2px solid var(--accent);padding-top:10px}
+
+.inv-notes{font-size:.82rem;color:var(--muted);padding:12px 16px;background:#fafafa;border-radius:6px;margin-bottom:20px;white-space:pre-line}
+
+.inv-stamps{display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px;margin-top:30px;padding-top:20px;border-top:1px solid #e0e0e0}
+.stamp-box{text-align:center}
+.stamp-box .lbl{font-size:.78rem;color:var(--muted);margin-bottom:30px}
+.stamp-box .line{border-bottom:1px solid #999;width:80%;margin:0 auto}
+
+.inv-footer{text-align:center;margin-top:24px;font-size:.75rem;color:#bbb;letter-spacing:1px}
+
+/* Saved list */
+.saved-list{margin-top:16px;font-size:.85rem}
+.saved-item{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border:1px solid var(--border);border-radius:5px;margin-bottom:6px;cursor:pointer}
+.saved-item:hover{background:#f0f5ff}
+.saved-item .meta{color:var(--muted);font-size:.78rem}
+
+/* Print */
+@media print{
+  body{background:#fff}
+  .form-panel,.btn-group,.saved-list,h1{display:none!important}
+  .layout{grid-template-columns:1fr}
+  .preview-panel{box-shadow:none}
+  .invoice-page{padding:20px}
+}
+
+/* Sidebar Styles */
+:root { --sidebar-w: 240px; }
+.sidebar{width:var(--sidebar-w);background:linear-gradient(180deg,#0f172a 0%,#1e293b 100%);color:#fff;position:fixed;top:0;left:0;bottom:0;display:flex;flex-direction:column;z-index:100;transition:transform .3s}
+.sidebar-header{padding:28px 20px 24px;border-bottom:1px solid rgba(255,255,255,.08);display:block;text-decoration:none;color:inherit}
+.sidebar-header h1{font-size:1.1rem;font-weight:700;margin:0;color:#fff;text-align:left}
+.sidebar-header p{font-size:.75rem;color:#94a3b8;margin:4px 0 0 0;text-align:left}
+.sidebar-nav{flex:1;padding:12px 0;display:flex;flex-direction:column}
+.sidebar-nav a{display:flex;align-items:center;gap:12px;padding:12px 20px;color:#94a3b8;text-decoration:none;font-size:.9rem;transition:all .2s;border-left:3px solid transparent}
+.sidebar-nav a:hover{background:rgba(255,255,255,.06);color:#fff}
+.sidebar-nav a.active{background:linear-gradient(90deg,rgba(79,70,229,.2),transparent);color:#fff;border-left-color:#3b82f6}
+.sidebar-nav a .icon{font-size:1.2rem;width:24px;text-align:center}
+.sidebar-footer{padding:16px 20px;border-top:1px solid rgba(255,255,255,.08);font-size:.75rem;color:#475569}
+
+.main-wrap { margin-left: var(--sidebar-w); min-height: 100vh; display: flex; flex-direction: column; }
+
+@media(max-width:900px){
+  .sidebar{transform:translateX(-100%)}
+  .sidebar.open{transform:translateX(0)}
+  .main-wrap{margin-left:0}
+  .mobile-header{display:flex !important}
+}
+
+</style>
+</head>
+<body>
+
+<!-- Sidebar for Juyang -->
+<aside class="sidebar" id="sidebar">
+  <a href="/index.html" class="sidebar-header" style="text-decoration:none;color:inherit;cursor:pointer">
+    <h1>巨揚設計有限公司</h1>
+    <p>會計管理系統</p>
+  </a>
+  <nav class="sidebar-nav">
+    <a href="/unified_invoice.html" id="nav-invoice"><span class="icon">📃</span>統一發票生成器</a>
+    <a href="/quotation_generator.html" id="nav-quote"><span class="icon">📋</span>報價單生成器</a>
+    <a href="/tax_401.html" id="nav-tax"><span class="icon">🧾</span>營業稅申報表</a>
+  </nav>
+  <div class="sidebar-footer">
+    © 2026 巨揚設計
+  </div>
+</aside>
+
+<!-- Mobile Header -->
+<div class="mobile-header" style="display:none;align-items:center;gap:12px;padding:12px 20px;background:#fff;border-bottom:1px solid #ddd;position:sticky;top:0;z-index:90">
+  <button id="menuBtn" style="background:none;border:none;font-size:1.5rem;cursor:pointer">☰</button>
+  <h2 style="font-size:1.1rem;margin:0">巨揚設計</h2>
+</div>
+
+<div class="main-wrap">
+<div class="container">
+  <h1>📃 統一發票生成器</h1>
+  <div class="layout">
+    <!-- Form -->
+    <div class="form-panel">
+      <h3>📋 發票資訊</h3>
+      <div class="row2">
+        <div class="fg"><label>發票字軌</label><input id="invTrack" placeholder="AB" maxlength="2" style="text-transform:uppercase"></div>
+        <div class="fg"><label>發票號碼</label><input id="invNo" placeholder="12345678" maxlength="8"></div>
+      </div>
+      <div class="row2">
+        <div class="fg"><label>開立日期</label><input type="date" id="invDate"></div>
+        <div class="fg">
+          <label>發票類型</label>
+          <select id="invType">
+            <option value="三聯式">三聯式</option>
+            <option value="二聯式">二聯式</option>
+            <option value="電子發票">電子發票</option>
+          </select>
+        </div>
+      </div>
+
+      <h3>🏢 賣方（本事務所）</h3>
+      <div class="fg"><label>名稱</label><input id="sellerName" value="巨揚設計有限公司"></div>
+      <div class="fg"><label>統一編號</label><input id="sellerTaxId" value="94260274" maxlength="8"></div>
+      <div class="fg"><label>地址</label><input id="sellerAddr" value="台中市南屯區大墩一街241-1號2樓"></div>
+      <div class="fg"><label>電話</label><input id="sellerPhone" value="04-24739736"></div>
+
+      <h3>👤 買方</h3>
+      <div class="fg"><label>名稱</label><input id="buyerName" placeholder="公司或個人名稱"></div>
+      <div class="fg"><label>統一編號</label><input id="buyerTaxId" placeholder="00000000" maxlength="8"></div>
+      <div class="fg"><label>地址</label><input id="buyerAddr" placeholder="買方地址"></div>
+
+      <h3>📦 品項明細</h3>
+      <div id="itemsContainer"></div>
+      <button class="btn btn-outline" onclick="addItem()" style="margin-top:8px">＋ 新增品項</button>
+
+      <h3>📝 備註</h3>
+      <div class="fg"><textarea id="invNotes" rows="2" placeholder="付款條件、其他說明..."></textarea></div>
+
+      <div class="fg" style="margin-top:12px">
+        <label><input type="checkbox" id="taxIncluded" checked onchange="recalc()"> 金額已含稅（內含 5% 營業稅）</label>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn btn-primary" onclick="generate()">🔄 生成預覽</button>
+        <button class="btn btn-success" onclick="window.print()">🖨️ 列印 / PDF</button>
+        <button class="btn btn-outline" onclick="saveInvoice()">💾 儲存</button>
+      </div>
+
+      <h3>💾 已儲存的發票</h3>
+      <div id="savedList" class="saved-list"><p style="color:#999;font-size:.82rem">尚無儲存的發票</p></div>
+    </div>
+
+    <!-- Preview -->
+    <div class="preview-panel">
+      <div class="invoice-page" id="invoicePage">
+        <div class="inv-header">
+          <div class="inv-title">統 一 發 票</div>
+          <div class="inv-subtitle">UNIFORM INVOICE</div>
+          <div class="inv-type" id="pType">三聯式</div>
+        </div>
+        <div class="inv-meta">
+          <span>發票字軌號碼：<strong id="pInvNo">—</strong></span>
+          <span>日期：<strong id="pDate">—</strong></span>
+        </div>
+        <div class="inv-info">
+          <div class="inv-info-box">
+            <h4>▌賣方</h4>
+            <div class="inv-info-row"><span class="lbl">名　稱</span><span class="val" id="pSellerName">張哲維建築師事務所</span></div>
+            <div class="inv-info-row"><span class="lbl">統　編</span><span class="val" id="pSellerTax">—</span></div>
+            <div class="inv-info-row"><span class="lbl">地　址</span><span class="val" id="pSellerAddr">—</span></div>
+            <div class="inv-info-row"><span class="lbl">電　話</span><span class="val" id="pSellerPhone">—</span></div>
+          </div>
+          <div class="inv-info-box">
+            <h4>▌買方</h4>
+            <div class="inv-info-row"><span class="lbl">名　稱</span><span class="val" id="pBuyerName">—</span></div>
+            <div class="inv-info-row"><span class="lbl">統　編</span><span class="val" id="pBuyerTax">—</span></div>
+            <div class="inv-info-row"><span class="lbl">地　址</span><span class="val" id="pBuyerAddr">—</span></div>
+          </div>
+        </div>
+        <table class="inv-table">
+          <thead><tr><th>品名</th><th style="width:60px">數量</th><th style="width:90px">單價</th><th style="width:100px">金額</th></tr></thead>
+          <tbody id="pItems"><tr><td colspan="4" style="text-align:center;color:#999;padding:30px">請填寫左側表單後點擊「生成預覽」</td></tr></tbody>
+        </table>
+        <div class="inv-summary" id="pSummary"></div>
+        <div class="inv-notes" id="pNotes" style="display:none"></div>
+        <div class="inv-stamps">
+          <div class="stamp-box"><div class="lbl">開立人</div><div class="line"></div></div>
+          <div class="stamp-box"><div class="lbl">經辦人</div><div class="line"></div></div>
+          <div class="stamp-box"><div class="lbl">主管</div><div class="line"></div></div>
+        </div>
+        <div class="inv-footer">巨揚設計有限公司 統一發票</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_BASE = location.origin + '/api/data';
+const STORE_KEY = 'invoiceStore';
+let savedInvoices = [];
+
+// Init
+document.getElementById('invDate').valueAsDate = new Date();
+addItem();
+loadSaved();
+
+function fmt(n){ return n.toLocaleString('zh-TW') }
+
+function addItem(){
+  const c = document.getElementById('itemsContainer');
+  const div = document.createElement('div');
+  div.className = 'item-row';
+  div.innerHTML = `
+    <input type="text" placeholder="品名" class="ii-name">
+    <input type="number" placeholder="數量" class="ii-qty" value="1" min="1" onchange="recalc()">
+    <input type="number" placeholder="單價" class="ii-price" value="0" min="0" onchange="recalc()">
+    <input type="text" class="ii-amt computed" readonly value="0">
+    <button class="btn-del" onclick="removeItem(this)">✕</button>
+  `;
+  c.appendChild(div);
+}
+
+function removeItem(btn){
+  const c = document.getElementById('itemsContainer');
+  if(c.children.length > 1) btn.closest('.item-row').remove();
+  recalc();
+}
+
+function getItems(){
+  const rows = document.querySelectorAll('#itemsContainer .item-row');
+  const items = [];
+  rows.forEach(r => {
+    const name = r.querySelector('.ii-name').value;
+    const qty = parseFloat(r.querySelector('.ii-qty').value) || 0;
+    const price = parseFloat(r.querySelector('.ii-price').value) || 0;
+    const amt = qty * price;
+    r.querySelector('.ii-amt').value = fmt(amt);
+    if(name) items.push({name, qty, price, amt});
+  });
+  return items;
+}
+
+function recalc(){ getItems(); }
+
+function toROCDate(dateStr){
+  if(!dateStr) return '—';
+  const d = new Date(dateStr);
+  const y = d.getFullYear() - 1911;
+  return `${y} 年 ${d.getMonth()+1} 月 ${d.getDate()} 日`;
+}
+
+function generate(){
+  const items = getItems();
+  const taxIncluded = document.getElementById('taxIncluded').checked;
+  const track = document.getElementById('invTrack').value.toUpperCase();
+  const no = document.getElementById('invNo').value;
+  const invNoStr = track && no ? `${track}-${no}` : (track || no || '—');
+
+  // Header
+  document.getElementById('pType').textContent = document.getElementById('invType').value;
+  document.getElementById('pInvNo').textContent = invNoStr;
+  document.getElementById('pDate').textContent = toROCDate(document.getElementById('invDate').value);
+
+  // Seller / Buyer
+  document.getElementById('pSellerName').textContent = document.getElementById('sellerName').value || '—';
+  document.getElementById('pSellerTax').textContent = document.getElementById('sellerTaxId').value || '—';
+  document.getElementById('pSellerAddr').textContent = document.getElementById('sellerAddr').value || '—';
+  document.getElementById('pSellerPhone').textContent = document.getElementById('sellerPhone').value || '—';
+  document.getElementById('pBuyerName').textContent = document.getElementById('buyerName').value || '—';
+  document.getElementById('pBuyerTax').textContent = document.getElementById('buyerTaxId').value || '—';
+  document.getElementById('pBuyerAddr').textContent = document.getElementById('buyerAddr').value || '—';
+
+  // Items table
+  const tbody = document.getElementById('pItems');
+  tbody.innerHTML = '';
+  let subtotal = 0;
+  items.forEach(it => {
+    subtotal += it.amt;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${it.name}</td><td style="text-align:center">${it.qty}</td><td style="text-align:right">NT$ ${fmt(it.price)}</td><td style="text-align:right">NT$ ${fmt(it.amt)}</td>`;
+    tbody.appendChild(tr);
+  });
+  if(items.length === 0){
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999;padding:20px">無品項</td></tr>';
+  }
+
+  // Summary
+  let salesAmt, tax, total;
+  if(taxIncluded){
+    total = subtotal;
+    tax = Math.round(subtotal / 1.05 * 0.05);
+    salesAmt = total - tax;
+  } else {
+    salesAmt = subtotal;
+    tax = Math.round(subtotal * 0.05);
+    total = salesAmt + tax;
+  }
+
+  document.getElementById('pSummary').innerHTML = `<table>
+    <tr><td>銷售額</td><td>NT$ ${fmt(salesAmt)}</td></tr>
+    <tr><td>營業稅 5%</td><td>NT$ ${fmt(tax)}</td></tr>
+    <tr class="total-row"><td>總　計</td><td>NT$ ${fmt(total)}</td></tr>
+  </table>`;
+
+  // Notes
+  const notes = document.getElementById('invNotes').value;
+  const pn = document.getElementById('pNotes');
+  if(notes){ pn.textContent = notes; pn.style.display = 'block'; }
+  else { pn.style.display = 'none'; }
+}
+
+// === Persistence ===
+async function loadSaved(){
+  try{
+    const r = await fetch(API_BASE + '/invoices');
+    if(r.ok){ savedInvoices = await r.json(); }
+    else { savedInvoices = JSON.parse(localStorage.getItem(STORE_KEY) || '[]'); }
+  }catch(e){ savedInvoices = JSON.parse(localStorage.getItem(STORE_KEY) || '[]'); }
+  renderSaved();
+}
+
+function persistSaved(){
+  localStorage.setItem(STORE_KEY, JSON.stringify(savedInvoices));
+  fetch(API_BASE + '/invoices', {
+    method: 'PUT',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(savedInvoices)
+  }).catch(()=>{});
+}
+
+function saveInvoice(){
+  const items = getItems();
+  const data = {
+    id: Date.now().toString(36),
+    track: document.getElementById('invTrack').value.toUpperCase(),
+    no: document.getElementById('invNo').value,
+    date: document.getElementById('invDate').value,
+    type: document.getElementById('invType').value,
+    sellerName: document.getElementById('sellerName').value,
+    sellerTaxId: document.getElementById('sellerTaxId').value,
+    sellerAddr: document.getElementById('sellerAddr').value,
+    sellerPhone: document.getElementById('sellerPhone').value,
+    buyerName: document.getElementById('buyerName').value,
+    buyerTaxId: document.getElementById('buyerTaxId').value,
+    buyerAddr: document.getElementById('buyerAddr').value,
+    items,
+    notes: document.getElementById('invNotes').value,
+    taxIncluded: document.getElementById('taxIncluded').checked,
+    createdAt: new Date().toISOString()
+  };
+  savedInvoices.unshift(data);
+  persistSaved();
+  renderSaved();
+  alert('✅ 發票已儲存！');
+}
+
+function renderSaved(){
+  const el = document.getElementById('savedList');
+  if(!savedInvoices.length){ el.innerHTML = '<p style="color:#999;font-size:.82rem">尚無儲存的發票</p>'; return; }
+  el.innerHTML = savedInvoices.map((inv, i) => {
+    const no = (inv.track && inv.no) ? `${inv.track}-${inv.no}` : (inv.no || '未編號');
+    const total = inv.items.reduce((s,it) => s + it.amt, 0);
+    return `<div class="saved-item" onclick="loadInvoice(${i})">
+      <div><strong>${no}</strong> — ${inv.buyerName || '未填買方'}<div class="meta">${inv.date || ''} ｜ NT$ ${fmt(total)}</div></div>
+      <button class="btn-del" onclick="event.stopPropagation();deleteInvoice(${i})" title="刪除">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function loadInvoice(i){
+  const inv = savedInvoices[i];
+  if(!inv) return;
+  document.getElementById('invTrack').value = inv.track || '';
+  document.getElementById('invNo').value = inv.no || '';
+  document.getElementById('invDate').value = inv.date || '';
+  document.getElementById('invType').value = inv.type || '三聯式';
+  document.getElementById('sellerName').value = inv.sellerName || '';
+  document.getElementById('sellerTaxId').value = inv.sellerTaxId || '';
+  document.getElementById('sellerAddr').value = inv.sellerAddr || '';
+  document.getElementById('sellerPhone').value = inv.sellerPhone || '';
+  document.getElementById('buyerName').value = inv.buyerName || '';
+  document.getElementById('buyerTaxId').value = inv.buyerTaxId || '';
+  document.getElementById('buyerAddr').value = inv.buyerAddr || '';
+  document.getElementById('invNotes').value = inv.notes || '';
+  document.getElementById('taxIncluded').checked = inv.taxIncluded !== false;
+  // Rebuild items
+  const c = document.getElementById('itemsContainer');
+  c.innerHTML = '';
+  (inv.items || []).forEach(it => {
+    addItem();
+    const row = c.lastElementChild;
+    row.querySelector('.ii-name').value = it.name;
+    row.querySelector('.ii-qty').value = it.qty;
+    row.querySelector('.ii-price').value = it.price;
+    row.querySelector('.ii-amt').value = fmt(it.amt);
+  });
+  if(!inv.items || !inv.items.length) addItem();
+  generate();
+}
+
+function deleteInvoice(i){
+  if(!confirm('確定刪除這張發票？')) return;
+  savedInvoices.splice(i, 1);
+  persistSaved();
+  renderSaved();
+}
+</script>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const path = window.location.pathname;
+  if(path.includes('unified_invoice')) document.getElementById('nav-invoice').classList.add('active');
+  if(path.includes('quotation_generator')) document.getElementById('nav-quote').classList.add('active');
+  if(path.includes('tax_401')) document.getElementById('nav-tax').classList.add('active');
+
+  const btn = document.getElementById('menuBtn');
+  const sb = document.getElementById('sidebar');
+  if(btn && sb) {
+    btn.onclick = () => sb.classList.toggle('open');
+  }
+});
+</script>
+</body>
+
+</html>

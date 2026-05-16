@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>會計管理系統</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0f172a;--card1:#1e3a5f;--card2:#1a3a2a;--accent1:#3b82f6;--accent2:#22c55e;--text:#f8fafc;--muted:#94a3b8;--radius:16px}
+body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:40px 20px}
+
+h1{font-size:2rem;font-weight:900;margin-bottom:8px;letter-spacing:2px}
+.subtitle{color:var(--muted);font-size:.9rem;margin-bottom:48px}
+
+.companies{display:grid;grid-template-columns:1fr 1fr;gap:32px;width:100%;max-width:1000px}
+@media(max-width:768px){.companies{grid-template-columns:1fr}}
+
+.company-card{border-radius:var(--radius);padding:32px;position:relative;overflow:hidden;transition:transform .2s}
+.company-card:hover{transform:translateY(-4px)}
+.company-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px}
+
+.c1{background:linear-gradient(135deg,#1e3a5f,#1a2744)}.c1::before{background:linear-gradient(90deg,#3b82f6,#60a5fa)}
+.c2{background:linear-gradient(135deg,#1a3a2a,#162e1e)}.c2::before{background:linear-gradient(90deg,#22c55e,#4ade80)}
+
+.c-header{margin-bottom:24px}
+.c-header h2{font-size:1.3rem;font-weight:700;margin-bottom:4px}
+.c-header .tax-id{font-size:.82rem;color:var(--muted)}
+.c-header .addr{font-size:.78rem;color:var(--muted);margin-top:2px}
+
+.tools{display:flex;flex-direction:column;gap:10px}
+.tool-link{display:flex;align-items:center;gap:14px;padding:14px 18px;background:rgba(255,255,255,.06);border-radius:12px;text-decoration:none;color:var(--text);transition:all .15s;border:1px solid rgba(255,255,255,.08)}
+.tool-link:hover{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.15);transform:translateX(4px)}
+.tool-link .icon{font-size:1.6rem;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:10px;flex-shrink:0}
+.c1 .tool-link .icon{background:rgba(59,130,246,.2)}
+.c2 .tool-link .icon{background:rgba(34,197,94,.2)}
+.tool-link .info{flex:1}
+.tool-link .info h3{font-size:.95rem;font-weight:600;margin-bottom:2px}
+.tool-link .info p{font-size:.78rem;color:var(--muted)}
+.tool-link .arrow{color:var(--muted);font-size:1.1rem;transition:transform .15s}
+.tool-link:hover .arrow{transform:translateX(4px)}
+
+.footer{margin-top:60px;text-align:center;color:var(--muted);font-size:.75rem;letter-spacing:1px}
+.footer a{color:var(--muted);text-decoration:none}
+
+/* Clock */
+.clock{position:fixed;top:20px;right:24px;font-size:.85rem;color:var(--muted);font-weight:300}
+</style>
+</head>
+<body>
+
+<div class="clock" id="clock"></div>
+
+<h1>📊 會計管理系統</h1>
+<p class="subtitle">選擇公司進入管理工具</p>
+
+<div class="companies">
+  <!-- 張哲維建築師事務所 -->
+  <div class="company-card c1">
+    <div class="c-header">
+      <h2>🏛️ 張哲維建築師事務所</h2>
+      <div class="tax-id">統一編號：47580887</div>
+      <div class="addr">台中市南屯區大墩一街241-1號2樓 ｜ 04-24739736</div>
+    </div>
+    <div class="tools">
+      <a href="accounting_dashboard.html" class="tool-link">
+        <div class="icon">📋</div>
+        <div class="info"><h3>會計管理儀表板</h3><p>應付帳款、薪資、月報表</p></div>
+        <span class="arrow">→</span>
+      </a>
+      <a href="accounting_dashboard.html#payables" class="tool-link">
+        <div class="icon">📋</div>
+        <div class="info"><h3>應付帳款</h3><p>固定開銷、設備、雜支</p></div>
+        <span class="arrow">›</span>
+      </a>
+      <a href="receivables.html" class="tool-link">
+        <div class="icon">💰</div>
+        <div class="info"><h3>應收帳款追蹤</h3><p>未收款追蹤、逾期提醒、收款進度</p></div>
+        <span class="arrow">→</span>
+      </a>
+      <a href="contract_invoice_generator.html" class="tool-link">
+        <div class="icon">📄</div>
+        <div class="info"><h3>合約請款單生成器</h3><p>上傳合約自動產生請款單與收據</p></div>
+        <span class="arrow">→</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- 巨揚設計有限公司 -->
+  <div class="company-card c2">
+    <div class="c-header">
+      <h2>🏢 巨揚設計有限公司</h2>
+      <div class="tax-id">統一編號：94260274</div>
+      <div class="addr">台中市南屯區大墩一街241-1號2樓 ｜ 04-24739736</div>
+    </div>
+    <div class="tools">
+      <a href="quotation_generator.html" class="tool-link">
+        <div class="icon">📋</div>
+        <div class="info"><h3>報價單生成器</h3><p>品項明細、付款條件、列印/PDF</p></div>
+        <span class="arrow">→</span>
+      </a>
+      <a href="tax_manager.html" class="tool-link">
+        <div class="icon">📋</div>
+        <div class="info"><h3>稅務管理中心</h3><p>稅務行事曆、到期提醒、申報追蹤、多公司管理</p></div>
+        <span class="arrow">›</span>
+      </a>
+      </div>
+  </div>
+</div>
+
+<div class="footer">
+  <p>© 2026 會計管理系統 — 本地運行於 localhost:9800</p>
+</div>
+
+<script>
+function updateClock(){
+  const now = new Date();
+  const roc = now.getFullYear() - 1911;
+  const str = `民國 ${roc} 年 ${now.getMonth()+1} 月 ${now.getDate()} 日 ${now.toLocaleTimeString('zh-TW')}`;
+  document.getElementById('clock').textContent = str;
+}
+updateClock();
+setInterval(updateClock, 1000);
+</script>
+</body>
+</html>

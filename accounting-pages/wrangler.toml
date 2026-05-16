@@ -1,0 +1,8 @@
+name = "arch-accounting"
+compatibility_date = "2024-11-01"
+pages_build_output_dir = "."
+
+[[d1_databases]]
+binding = "DB"
+database_name = "arch-accounting-db"
+database_id = "8db3e67b-ca60-4941-8c75-0ab71af8afe7"

@@ -1,0 +1,10 @@
+node_modules/
+skills/
+*.log
+accounting-data/*.backup.json
+import_projects.html
+workspace/Kronos/
+workspace/TradingAgents-CN/
+*.bak*
+.DS_Store
+accounting-pages/archAccounting.json

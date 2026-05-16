@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>Auto Test</title></head>
+<body>
+<h2>Auto Bank Import Test</h2>
+<div id="result">Loading...</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+fetch('/test_bank.xls').then(r=>r.arrayBuffer()).then(buf=>{
+  var data = new Uint8Array(buf);
+  var binary = '';
+  for(var i=0;i<data.length;i++) binary += String.fromCharCode(data[i]);
+  var wb = XLSX.read(binary, {type:'binary', codepage:950});
+  var ws = wb.Sheets[wb.SheetNames[0]];
+  var rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+  
+  var count = 0;
+  var html = '<table border="1" cellpadding="4" style="font-size:13px"><tr><th>日期</th><th>分類</th><th>摘要</th><th>金額</th></tr>';
+  
+  var rules = [
+    {kw:['勞保費','勞保'], cat:'勞保費'},
+    {kw:['手續費'], cat:'手續費'},
+    {kw:['范嘉富','鍾宜娟','張哲維','薪'], cat:'員工薪水'},
+    {kw:['帳款','工程'], cat:'工程款'},
+    {kw:['記帳士'], cat:'記帳士'},
+    {kw:['扶輪社'], cat:'社團'},
+  ];
+  
+  for(var i=1;i<rows.length;i++){
+    var row=rows[i]; if(!row||!row[0])continue;
+    var exp=parseFloat(String(row[4]||'').replace(/,/g,'').replace(/\s/g,''))||0;
+    var inc=parseFloat(String(row[5]||'').replace(/,/g,'').replace(/\s/g,''))||0;
+    if(!exp&&!inc)continue;
+    
+    var text=String(row[2]||'')+' '+String(row[3]||'')+' '+String(row[7]||'');
+    var grp=row.length>11?String(row[11]||'').trim():'';
+    var cat=grp||'其他';
+    if(!grp){for(var r of rules){for(var k of r.kw){if(text.indexOf(k)>=0){cat=r.cat;break;}}}}
+    
+    var d=String(row[0]).trim().replace(/(\d{2,3})-(\d{2})-(\d{2})/,(m,y,mo,da)=>(parseInt(y)+1911)+'-'+mo+'-'+da);
+    html+='<tr><td>'+d+'</td><td>'+cat+'</td><td>'+String(row[2]||'')+'</td><td style="text-align:right;color:'+(exp?'red':'green')+'">'+(exp?'-'+exp:'+'+inc)+'</td></tr>';
+    count++;
+  }
+  html+='</table>';
+  document.getElementById('result').innerHTML='<b>✅ '+count+' entries</b><br>'+html;
+}).catch(e=>{document.getElementById('result').textContent='❌ '+e.message;});
+</script>
+</body></html>

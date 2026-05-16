@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>Test Bank Import</title></head>
+<body>
+<h2>Bank Import Test</h2>
+<input type="file" id="f" accept=".xls,.xlsx">
+<pre id="out">waiting...</pre>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+document.getElementById('f').addEventListener('change', function(){
+  var file = this.files[0];
+  var out = document.getElementById('out');
+  out.textContent = 'Reading ' + file.name + ' (' + file.size + ' bytes)...';
+  
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var data = new Uint8Array(e.target.result);
+      out.textContent += '\nLoaded ' + data.length + ' bytes';
+      
+      // Try binary read
+      var binary = '';
+      for (var i = 0; i < data.length; i++) binary += String.fromCharCode(data[i]);
+      out.textContent += '\nConverted to binary string';
+      
+      var wb = XLSX.read(binary, {type:'binary', codepage:950});
+      out.textContent += '\nWorkbook loaded: ' + wb.SheetNames.join(', ');
+      
+      var ws = wb.Sheets[wb.SheetNames[0]];
+      var rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+      out.textContent += '\nRows: ' + rows.length;
+      out.textContent += '\nHeaders: ' + JSON.stringify(rows[0]);
+      out.textContent += '\nRow 1: ' + JSON.stringify(rows[1]);
+      
+      // Count valid
+      var count = 0;
+      for (var i = 1; i < rows.length; i++) {
+        var row = rows[i];
+        if (!row || !row[0]) continue;
+        var exp = parseFloat(String(row[4]||'').replace(/,/g,'').replace(/\s/g,'')) || 0;
+        var inc = parseFloat(String(row[5]||'').replace(/,/g,'').replace(/\s/g,'')) || 0;
+        if (exp || inc) count++;
+      }
+      out.textContent += '\nValid entries: ' + count;
+      out.textContent += '\n\n✅ SUCCESS!';
+      
+    } catch(err) {
+      out.textContent += '\n❌ ERROR: ' + err.message + '\n' + err.stack;
+    }
+  };
+  reader.readAsArrayBuffer(file);
+});
+</script>
+</body>
+</html>

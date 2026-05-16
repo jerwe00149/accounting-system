@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>測試上傳</title>
+</head><body style="padding:20px;background:#111;color:#fff">
+<h2>測試檔案上傳</h2>
+<input type="file" id="f1" accept="image/*,.pdf">
+<p id="result">選擇檔案後會顯示在這裡</p>
+<img id="img" style="max-width:300px;display:none">
+<script>
+document.getElementById('f1').addEventListener('change', function(e) {
+  var file = e.target.files[0];
+  if (!file) return;
+  document.getElementById('result').textContent = '選到: ' + file.name + ' (' + file.size + ' bytes)';
+  if (file.type.startsWith('image/')) {
+    var r = new FileReader();
+    r.onload = function(ev) {
+      document.getElementById('img').src = ev.target.result;
+      document.getElementById('img').style.display = 'block';
+    };
+    r.readAsDataURL(file);
+  }
+});
+</script>
+</body></html>

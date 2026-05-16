@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>營業稅申報表（401表）— 巨揚設計有限公司</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--accent:#1a5276;--accent2:#2980b9;--bg:#f0f2f5;--card:#fff;--text:#1a1a1a;--muted:#666;--border:#ddd;--radius:8px;--success:#27ae60;--warn:#e67e22;--danger:#e74c3c}
+body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:20px}
+.container{max-width:1100px;margin:0 auto}
+h1{text-align:center;color:var(--accent);margin-bottom:6px;font-size:1.5rem}
+.subtitle{text-align:center;color:var(--muted);font-size:.85rem;margin-bottom:24px}
+
+.layout{display:grid;grid-template-columns:380px 1fr;gap:24px}
+@media(max-width:900px){.layout{grid-template-columns:1fr}}
+
+/* Form */
+.form-panel{background:var(--card);border-radius:var(--radius);padding:24px;box-shadow:0 2px 8px rgba(0,0,0,.06);height:fit-content;position:sticky;top:20px}
+.form-panel h3{font-size:.95rem;color:var(--accent);margin:16px 0 8px;padding-bottom:4px;border-bottom:2px solid var(--accent)}
+.form-panel h3:first-child{margin-top:0}
+.fg{margin-bottom:10px}
+.fg label{display:block;font-size:.8rem;color:var(--muted);margin-bottom:3px;font-weight:500}
+.fg input,.fg select{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:5px;font-size:.9rem;font-family:inherit}
+.fg input:focus,.fg select:focus{outline:none;border-color:var(--accent)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+
+/* Items */
+.entry-row{display:grid;grid-template-columns:auto 2fr 1fr 1fr 36px;gap:6px;align-items:center;margin-bottom:6px;font-size:.85rem}
+.entry-row input{padding:6px 8px;font-size:.85rem}
+.entry-row .idx{color:var(--muted);font-size:.78rem;width:20px;text-align:center}
+.btn-del{background:#e74c3c;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:.9rem;padding:4px 8px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border:none;border-radius:var(--radius);font-family:inherit;font-size:.85rem;font-weight:600;cursor:pointer;transition:all .15s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:#0e3a53}
+.btn-success{background:var(--success);color:#fff}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}.btn-outline:hover{background:#f5f5f5}
+.btn-warn{background:var(--warn);color:#fff}
+.btn-group{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+
+/* Preview - 401 Form */
+.preview-panel{background:var(--card);border-radius:var(--radius);box-shadow:0 2px 8px rgba(0,0,0,.06);overflow:hidden}
+.form-401{padding:36px 40px;font-family:'Noto Sans TC',sans-serif}
+.form-401 .f-title{text-align:center;margin-bottom:4px}
+.form-401 .f-title h2{font-size:1.4rem;letter-spacing:4px;color:var(--text)}
+.form-401 .f-title p{font-size:.82rem;color:var(--muted)}
+.form-401 .f-subtitle{text-align:center;font-size:1.1rem;font-weight:700;color:var(--accent);margin:12px 0;letter-spacing:3px}
+
+.f-info{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;font-size:.85rem;padding:12px 16px;background:#f8fafc;border-radius:6px}
+.f-info .row{display:flex;gap:8px}
+.f-info .lbl{color:var(--muted);min-width:80px}
+.f-info .val{font-weight:600}
+
+/* 401 Table */
+.f-table{width:100%;border-collapse:collapse;font-size:.84rem;margin-bottom:16px}
+.f-table th,.f-table td{border:1px solid #ccc;padding:8px 10px}
+.f-table th{background:#eef3f8;font-weight:600;text-align:center;font-size:.8rem;color:var(--accent)}
+.f-table td{vertical-align:middle}
+.f-table .section-header{background:#d6e4f0;font-weight:700;text-align:center;color:var(--accent);font-size:.85rem;letter-spacing:2px}
+.f-table .row-label{background:#f8fafc;font-weight:500;width:200px}
+.f-table .amt{text-align:right;font-family:'SF Mono','Noto Sans TC',monospace;font-weight:600}
+.f-table .amt.positive{color:var(--success)}
+.f-table .amt.negative{color:var(--danger)}
+.f-table .highlight{background:#fffde7}
+.f-table .total-row{background:#e8f5e9;font-weight:700}
+.f-table .tax-row{background:#fff3e0;font-weight:700}
+.f-table .result-row{background:#e3f2fd;font-weight:700;font-size:.9rem}
+
+.f-summary{margin:20px 0;padding:16px 20px;background:#f0f7ff;border-radius:8px;border-left:4px solid var(--accent2)}
+.f-summary h4{color:var(--accent);margin-bottom:10px;font-size:.9rem}
+.f-summary .result{font-size:1.3rem;font-weight:700}
+.f-summary .result.pay{color:var(--danger)}
+.f-summary .result.refund{color:var(--success)}
+
+.f-stamps{display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px;margin-top:30px;padding-top:20px;border-top:1px solid #ddd}
+.f-stamp{text-align:center}
+.f-stamp .lbl{font-size:.78rem;color:var(--muted);margin-bottom:30px}
+.f-stamp .line{border-bottom:1px solid #999;width:70%;margin:0 auto}
+
+/* Saved */
+.saved-list{margin-top:12px;font-size:.85rem}
+.saved-item{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border:1px solid var(--border);border-radius:5px;margin-bottom:6px;cursor:pointer}
+.saved-item:hover{background:#f0f5ff}
+.saved-item .meta{color:var(--muted);font-size:.78rem}
+
+@media print{
+  .form-panel,.btn-group,.saved-list,h1,.subtitle{display:none!important}
+  .layout{grid-template-columns:1fr}
+  .preview-panel{box-shadow:none}
+  body{background:#fff;padding:0}
+}
+
+/* Sidebar Styles */
+:root { --sidebar-w: 240px; }
+.sidebar{width:var(--sidebar-w);background:linear-gradient(180deg,#0f172a 0%,#1e293b 100%);color:#fff;position:fixed;top:0;left:0;bottom:0;display:flex;flex-direction:column;z-index:100;transition:transform .3s}
+.sidebar-header{padding:28px 20px 24px;border-bottom:1px solid rgba(255,255,255,.08);display:block;text-decoration:none;color:inherit}
+.sidebar-header h1{font-size:1.1rem;font-weight:700;margin:0;color:#fff;text-align:left}
+.sidebar-header p{font-size:.75rem;color:#94a3b8;margin:4px 0 0 0;text-align:left}
+.sidebar-nav{flex:1;padding:12px 0;display:flex;flex-direction:column}
+.sidebar-nav a{display:flex;align-items:center;gap:12px;padding:12px 20px;color:#94a3b8;text-decoration:none;font-size:.9rem;transition:all .2s;border-left:3px solid transparent}
+.sidebar-nav a:hover{background:rgba(255,255,255,.06);color:#fff}
+.sidebar-nav a.active{background:linear-gradient(90deg,rgba(79,70,229,.2),transparent);color:#fff;border-left-color:#3b82f6}
+.sidebar-nav a .icon{font-size:1.2rem;width:24px;text-align:center}
+.sidebar-footer{padding:16px 20px;border-top:1px solid rgba(255,255,255,.08);font-size:.75rem;color:#475569}
+
+.main-wrap { margin-left: var(--sidebar-w); min-height: 100vh; display: flex; flex-direction: column; }
+
+@media(max-width:900px){
+  .sidebar{transform:translateX(-100%)}
+  .sidebar.open{transform:translateX(0)}
+  .main-wrap{margin-left:0}
+  .mobile-header{display:flex !important}
+}
+
+</style>
+</head>
+<body>
+
+<!-- Sidebar for Juyang -->
+<aside class="sidebar" id="sidebar">
+  <a href="/index.html" class="sidebar-header" style="text-decoration:none;color:inherit;cursor:pointer">
+    <h1>巨揚設計有限公司</h1>
+    <p>會計管理系統</p>
+  </a>
+  <nav class="sidebar-nav">
+    <a href="/unified_invoice.html" id="nav-invoice"><span class="icon">📃</span>統一發票生成器</a>
+    <a href="/quotation_generator.html" id="nav-quote"><span class="icon">📋</span>報價單生成器</a>
+    <a href="/tax_401.html" id="nav-tax"><span class="icon">🧾</span>營業稅申報表</a>
+  </nav>
+  <div class="sidebar-footer">
+    © 2026 巨揚設計
+  </div>
+</aside>
+
+<!-- Mobile Header -->
+<div class="mobile-header" style="display:none;align-items:center;gap:12px;padding:12px 20px;background:#fff;border-bottom:1px solid #ddd;position:sticky;top:0;z-index:90">
+  <button id="menuBtn" style="background:none;border:none;font-size:1.5rem;cursor:pointer">☰</button>
+  <h2 style="font-size:1.1rem;margin:0">巨揚設計</h2>
+</div>
+
+<div class="main-wrap">
+<div class="container">
+  <h1>🧾 營業稅申報表</h1>
+  <p class="subtitle">401 表 — 巨揚設計有限公司</p>
+  <div class="layout">
+    <div class="form-panel">
+
+      <h3>📋 申報期別</h3>
+      <div class="row2">
+        <div class="fg">
+          <label>年度（民國）</label>
+          <input type="number" id="taxYear" value="" min="100" max="200">
+        </div>
+        <div class="fg">
+          <label>期別（雙月）</label>
+          <select id="taxPeriod">
+            <option value="1-2">1-2 月</option>
+            <option value="3-4">3-4 月</option>
+            <option value="5-6">5-6 月</option>
+            <option value="7-8">7-8 月</option>
+            <option value="9-10">9-10 月</option>
+            <option value="11-12">11-12 月</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="autoFill()" style="width:100%;margin-bottom:8px">🔄 從案件自動帶入</button>
+
+      <h3>📤 銷項（銷售額）</h3>
+      <div class="fg"><label>應稅銷售額（稅前）</label><input type="number" id="salesTaxable" value="0" min="0" onchange="calc()"></div>
+      <div class="fg"><label>零稅率銷售額</label><input type="number" id="salesZero" value="0" min="0" onchange="calc()"></div>
+      <div class="fg"><label>免稅銷售額</label><input type="number" id="salesExempt" value="0" min="0" onchange="calc()"></div>
+
+      <h3>📥 進項（進貨額）</h3>
+      <p style="font-size:.78rem;color:var(--muted);margin-bottom:8px">統一發票進項明細</p>
+      <div id="inputItems"></div>
+      <button class="btn btn-outline" onclick="addInput()" style="margin-top:6px">＋ 新增進項發票</button>
+      <div class="fg" style="margin-top:12px"><label>進項總額（稅前）</label><input type="number" id="inputTotal" value="0" readonly style="background:#f7f7f7;font-weight:700"></div>
+      <div class="fg"><label>進項稅額</label><input type="number" id="inputTax" value="0" readonly style="background:#f7f7f7;font-weight:700"></div>
+
+      <h3>📝 其他</h3>
+      <div class="fg"><label>上期留抵稅額</label><input type="number" id="prevCredit" value="0" min="0" onchange="calc()"></div>
+
+      <div class="btn-group">
+        <button class="btn btn-primary" onclick="calc();renderForm()">🔄 生成申報表</button>
+        <button class="btn btn-success" onclick="window.print()">🖨️ 列印 / PDF</button>
+        <button class="btn btn-outline" onclick="saveTax()">💾 儲存</button>
+      </div>
+
+      <h3>💾 已儲存的申報表</h3>
+      <div id="savedList" class="saved-list"><p style="color:#999;font-size:.82rem">尚無儲存</p></div>
+    </div>
+
+    <!-- 401 Preview -->
+    <div class="preview-panel">
+      <div class="form-401" id="form401">
+        <div class="f-title">
+          <h2>營業人銷售額與稅額申報書</h2>
+          <p>（一般稅額計算 — 401 表）</p>
+        </div>
+        <div class="f-subtitle">財政部臺灣省中區國稅局</div>
+
+        <div class="f-info">
+          <div class="row"><span class="lbl">營業人名稱</span><span class="val">巨揚設計有限公司</span></div>
+          <div class="row"><span class="lbl">統一編號</span><span class="val">94260274</span></div>
+          <div class="row"><span class="lbl">申報期別</span><span class="val" id="pPeriod">— 年 — 月</span></div>
+          <div class="row"><span class="lbl">負責人</span><span class="val">張哲維</span></div>
+          <div class="row"><span class="lbl">地　址</span><span class="val">台中市南屯區大墩一街241-1號2樓</span></div>
+          <div class="row"><span class="lbl">電　話</span><span class="val">04-24739736</span></div>
+        </div>
+
+        <table class="f-table">
+          <thead>
+            <tr><th style="width:40px">項次</th><th>項目</th><th style="width:160px">金額</th><th style="width:120px">稅額</th></tr>
+          </thead>
+          <tbody>
+            <!-- 銷項 -->
+            <tr><td colspan="4" class="section-header">壹、銷項</td></tr>
+            <tr><td class="text-center">1</td><td class="row-label">應稅銷售額</td><td class="amt" id="p_s1_amt">0</td><td class="amt" id="p_s1_tax">0</td></tr>
+            <tr><td class="text-center">2</td><td class="row-label">零稅率銷售額</td><td class="amt" id="p_s2_amt">0</td><td class="amt">0</td></tr>
+            <tr><td class="text-center">3</td><td class="row-label">免稅銷售額</td><td class="amt" id="p_s3_amt">0</td><td class="amt">—</td></tr>
+            <tr class="total-row"><td class="text-center">4</td><td class="row-label">銷項合計</td><td class="amt" id="p_s4_amt">0</td><td class="amt" id="p_s4_tax">0</td></tr>
+
+            <!-- 進項 -->
+            <tr><td colspan="4" class="section-header">貳、進項</td></tr>
+            <tr><td class="text-center">5</td><td class="row-label">統一發票進項總額</td><td class="amt" id="p_i5_amt">0</td><td class="amt" id="p_i5_tax">0</td></tr>
+            <tr><td class="text-center">6</td><td class="row-label">不得扣抵之進項稅額</td><td class="amt">—</td><td class="amt" id="p_i6_tax">0</td></tr>
+            <tr class="total-row"><td class="text-center">7</td><td class="row-label">進項合計（可扣抵）</td><td class="amt" id="p_i7_amt">0</td><td class="amt" id="p_i7_tax">0</td></tr>
+
+            <!-- 稅額計算 -->
+            <tr><td colspan="4" class="section-header">參、稅額計算</td></tr>
+            <tr class="tax-row"><td class="text-center">8</td><td class="row-label">銷項稅額（第4項稅額）</td><td class="amt" colspan="1">—</td><td class="amt" id="p_t8">0</td></tr>
+            <tr class="tax-row"><td class="text-center">9</td><td class="row-label">進項稅額（第7項稅額）</td><td class="amt" colspan="1">—</td><td class="amt" id="p_t9">0</td></tr>
+            <tr><td class="text-center">10</td><td class="row-label">上期留（溢）付稅額</td><td class="amt" colspan="1">—</td><td class="amt" id="p_t10">0</td></tr>
+            <tr class="result-row highlight"><td class="text-center">11</td><td class="row-label" id="p_result_label">本期應納（溢付）稅額</td><td class="amt" colspan="1">—</td><td class="amt" id="p_t11">0</td></tr>
+          </tbody>
+        </table>
+
+        <div class="f-summary" id="summaryBox">
+          <h4>📊 本期申報結果</h4>
+          <p style="font-size:.85rem;color:var(--muted)" id="summaryText">請填寫左側表單後點擊「生成申報表」</p>
+          <div class="result" id="summaryResult"></div>
+        </div>
+
+        <div class="f-stamps">
+          <div class="f-stamp"><div class="lbl">營業人蓋章</div><div class="line"></div></div>
+          <div class="f-stamp"><div class="lbl">負責人蓋章</div><div class="line"></div></div>
+          <div class="f-stamp"><div class="lbl">會計主管蓋章</div><div class="line"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_BASE = location.origin + '/api/data';
+let savedTax = [];
+
+// Init
+const now = new Date();
+const rocYear = now.getFullYear() - 1911;
+document.getElementById('taxYear').value = rocYear;
+// Auto select current bimonth period
+const m = now.getMonth() + 1;
+const periods = [[1,2],[3,4],[5,6],[7,8],[9,10],[11,12]];
+const curPeriod = periods.find(p => m >= p[0] && m <= p[1]) || periods[0];
+document.getElementById('taxPeriod').value = curPeriod[0] + '-' + curPeriod[1];
+
+addInput();
+loadSaved();
+
+function fmt(n){ return n.toLocaleString('zh-TW') }
+
+function addInput(){
+  const c = document.getElementById('inputItems');
+  const div = document.createElement('div');
+  div.className = 'entry-row';
+  const idx = c.children.length + 1;
+  div.innerHTML = `
+    <span class="idx">${idx}</span>
+    <input type="text" placeholder="廠商/說明" class="in-desc">
+    <input type="number" placeholder="金額(税前)" class="in-amt" value="0" min="0" onchange="calcInputs()">
+    <input type="number" placeholder="稅額" class="in-tax" value="0" min="0" onchange="calcInputs()">
+    <button class="btn-del" onclick="removeInput(this)">✕</button>
+  `;
+  c.appendChild(div);
+}
+
+function removeInput(btn){
+  const c = document.getElementById('inputItems');
+  if(c.children.length > 1) btn.closest('.entry-row').remove();
+  // Re-index
+  [...c.children].forEach((r,i) => r.querySelector('.idx').textContent = i+1);
+  calcInputs();
+}
+
+function getInputEntries(){
+  const rows = document.querySelectorAll('#inputItems .entry-row');
+  const entries = [];
+  rows.forEach(r => {
+    entries.push({
+      desc: r.querySelector('.in-desc').value,
+      amt: parseFloat(r.querySelector('.in-amt').value) || 0,
+      tax: parseFloat(r.querySelector('.in-tax').value) || 0
+    });
+  });
+  return entries;
+}
+
+function calcInputs(){
+  const entries = getInputEntries();
+  const totalAmt = entries.reduce((s,e) => s + e.amt, 0);
+  const totalTax = entries.reduce((s,e) => s + e.tax, 0);
+  document.getElementById('inputTotal').value = totalAmt;
+  document.getElementById('inputTax').value = totalTax;
+  calc();
+}
+
+function calc(){
+  const salesTaxable = parseFloat(document.getElementById('salesTaxable').value) || 0;
+  const salesZero = parseFloat(document.getElementById('salesZero').value) || 0;
+  const salesExempt = parseFloat(document.getElementById('salesExempt').value) || 0;
+  const salesTax = Math.round(salesTaxable * 0.05);
+  const salesTotal = salesTaxable + salesZero + salesExempt;
+  const salesTotalTax = salesTax;
+
+  const inputAmt = parseFloat(document.getElementById('inputTotal').value) || 0;
+  const inputTax = parseFloat(document.getElementById('inputTax').value) || 0;
+  const prevCredit = parseFloat(document.getElementById('prevCredit').value) || 0;
+
+  const netTax = salesTotalTax - inputTax - prevCredit;
+
+  return {salesTaxable, salesZero, salesExempt, salesTax, salesTotal, salesTotalTax, inputAmt, inputTax, prevCredit, netTax};
+}
+
+function renderForm(){
+  const d = calc();
+  const year = document.getElementById('taxYear').value;
+  const period = document.getElementById('taxPeriod').value;
+
+  document.getElementById('pPeriod').textContent = `${year} 年 ${period} 月`;
+
+  // 銷項
+  document.getElementById('p_s1_amt').textContent = fmt(d.salesTaxable);
+  document.getElementById('p_s1_tax').textContent = fmt(d.salesTax);
+  document.getElementById('p_s2_amt').textContent = fmt(d.salesZero);
+  document.getElementById('p_s3_amt').textContent = fmt(d.salesExempt);
+  document.getElementById('p_s4_amt').textContent = fmt(d.salesTotal);
+  document.getElementById('p_s4_tax').textContent = fmt(d.salesTotalTax);
+
+  // 進項
+  document.getElementById('p_i5_amt').textContent = fmt(d.inputAmt);
+  document.getElementById('p_i5_tax').textContent = fmt(d.inputTax);
+  document.getElementById('p_i6_tax').textContent = '0';
+  document.getElementById('p_i7_amt').textContent = fmt(d.inputAmt);
+  document.getElementById('p_i7_tax').textContent = fmt(d.inputTax);
+
+  // 稅額計算
+  document.getElementById('p_t8').textContent = fmt(d.salesTotalTax);
+  document.getElementById('p_t9').textContent = fmt(d.inputTax);
+  document.getElementById('p_t10').textContent = fmt(d.prevCredit);
+
+  const net = d.netTax;
+  document.getElementById('p_t11').textContent = fmt(Math.abs(net));
+  const el11 = document.getElementById('p_t11');
+  el11.classList.remove('positive','negative');
+  el11.classList.add(net >= 0 ? 'negative' : 'positive');
+
+  if(net > 0){
+    document.getElementById('p_result_label').textContent = '本期應納稅額';
+    document.getElementById('summaryText').textContent = `銷項稅額 ${fmt(d.salesTotalTax)} − 進項稅額 ${fmt(d.inputTax)} − 留抵 ${fmt(d.prevCredit)} ＝`;
+    document.getElementById('summaryResult').textContent = `應繳納 NT$ ${fmt(net)}`;
+    document.getElementById('summaryResult').className = 'result pay';
+  } else if(net < 0){
+    document.getElementById('p_result_label').textContent = '本期溢付稅額（留抵下期）';
+    document.getElementById('summaryText').textContent = `銷項稅額 ${fmt(d.salesTotalTax)} − 進項稅額 ${fmt(d.inputTax)} − 留抵 ${fmt(d.prevCredit)} ＝`;
+    document.getElementById('summaryResult').textContent = `溢付（留抵）NT$ ${fmt(Math.abs(net))}`;
+    document.getElementById('summaryResult').className = 'result refund';
+  } else {
+    document.getElementById('p_result_label').textContent = '本期應納稅額';
+    document.getElementById('summaryText').textContent = '銷項稅額與進項稅額相抵';
+    document.getElementById('summaryResult').textContent = 'NT$ 0（免繳）';
+    document.getElementById('summaryResult').className = 'result';
+  }
+}
+
+// Auto fill from accounting data
+async function autoFill(){
+  try{
+    const r = await fetch(API_BASE + '/archAccounting');
+    if(!r.ok) throw new Error();
+    const db = await r.json();
+    const year = document.getElementById('taxYear').value;
+    const period = document.getElementById('taxPeriod').value;
+    const [m1, m2] = period.split('-').map(Number);
+
+    // Find payments in this period
+    let totalSales = 0;
+    (db.projects || []).forEach(p => {
+      for(let i = 1; i <= 5; i++){
+        const dateStr = p['p'+i+'_date'] || '';
+        const amt = p['p'+i+'_amt'] || 0;
+        if(!dateStr || !amt) continue;
+        // Parse ROC date like "113.04.26"
+        const parts = dateStr.replace(/\s/g,'').split('.');
+        if(parts.length < 2) continue;
+        const pYear = parts[0];
+        const pMonth = parseInt(parts[1]);
+        if(pYear === year && pMonth >= m1 && pMonth <= m2){
+          totalSales += amt;
+        }
+      }
+    });
+
+    // Assume received amounts are tax-included, calc tax-exclusive
+    const taxExclusive = Math.round(totalSales / 1.05);
+    document.getElementById('salesTaxable').value = taxExclusive;
+    calc();
+    renderForm();
+    alert(`✅ 已從案件帶入 ${year} 年 ${m1}-${m2} 月收款\n含稅收入：NT$ ${fmt(totalSales)}\n稅前銷售額：NT$ ${fmt(taxExclusive)}`);
+  }catch(e){
+    alert('⚠️ 無法讀取案件資料');
+  }
+}
+
+// === Persistence ===
+async function loadSaved(){
+  try{
+    const r = await fetch(API_BASE + '/tax401');
+    if(r.ok) savedTax = await r.json();
+    else savedTax = JSON.parse(localStorage.getItem('tax401Store') || '[]');
+  }catch(e){ savedTax = JSON.parse(localStorage.getItem('tax401Store') || '[]'); }
+  renderSaved();
+}
+
+function persistSaved(){
+  localStorage.setItem('tax401Store', JSON.stringify(savedTax));
+  fetch(API_BASE + '/tax401', {
+    method: 'PUT',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(savedTax)
+  }).catch(()=>{});
+}
+
+function saveTax(){
+  const data = {
+    id: Date.now().toString(36),
+    year: document.getElementById('taxYear').value,
+    period: document.getElementById('taxPeriod').value,
+    salesTaxable: parseFloat(document.getElementById('salesTaxable').value) || 0,
+    salesZero: parseFloat(document.getElementById('salesZero').value) || 0,
+    salesExempt: parseFloat(document.getElementById('salesExempt').value) || 0,
+    inputEntries: getInputEntries(),
+    prevCredit: parseFloat(document.getElementById('prevCredit').value) || 0,
+    createdAt: new Date().toISOString()
+  };
+  savedTax.unshift(data);
+  persistSaved();
+  renderSaved();
+  alert('✅ 申報表已儲存！');
+}
+
+function renderSaved(){
+  const el = document.getElementById('savedList');
+  if(!savedTax.length){ el.innerHTML = '<p style="color:#999;font-size:.82rem">尚無儲存</p>'; return; }
+  el.innerHTML = savedTax.map((t, i) => {
+    return `<div class="saved-item" onclick="loadTax(${i})">
+      <div><strong>${t.year} 年 ${t.period} 月</strong><div class="meta">${t.createdAt?.slice(0,10) || ''}</div></div>
+      <button class="btn-del" onclick="event.stopPropagation();deleteTax(${i})">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function loadTax(i){
+  const t = savedTax[i];
+  if(!t) return;
+  document.getElementById('taxYear').value = t.year || '';
+  document.getElementById('taxPeriod').value = t.period || '1-2';
+  document.getElementById('salesTaxable').value = t.salesTaxable || 0;
+  document.getElementById('salesZero').value = t.salesZero || 0;
+  document.getElementById('salesExempt').value = t.salesExempt || 0;
+  document.getElementById('prevCredit').value = t.prevCredit || 0;
+
+  const c = document.getElementById('inputItems');
+  c.innerHTML = '';
+  (t.inputEntries || []).forEach(e => {
+    addInput();
+    const row = c.lastElementChild;
+    row.querySelector('.in-desc').value = e.desc || '';
+    row.querySelector('.in-amt').value = e.amt || 0;
+    row.querySelector('.in-tax').value = e.tax || 0;
+  });
+  if(!t.inputEntries || !t.inputEntries.length) addInput();
+  calcInputs();
+  renderForm();
+}
+
+function deleteTax(i){
+  if(!confirm('確定刪除？')) return;
+  savedTax.splice(i, 1);
+  persistSaved();
+  renderSaved();
+}
+</script>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const path = window.location.pathname;
+  if(path.includes('unified_invoice')) document.getElementById('nav-invoice').classList.add('active');
+  if(path.includes('quotation_generator')) document.getElementById('nav-quote').classList.add('active');
+  if(path.includes('tax_401')) document.getElementById('nav-tax').classList.add('active');
+
+  const btn = document.getElementById('menuBtn');
+  const sb = document.getElementById('sidebar');
+  if(btn && sb) {
+    btn.onclick = () => sb.classList.toggle('open');
+  }
+});
+</script>
+</body>
+
+</html>
