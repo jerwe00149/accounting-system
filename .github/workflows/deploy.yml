@@ -31,6 +31,11 @@ jobs:
         with:
           node-version: '22'
 
+      # Remove .git so wrangler can't read commit metadata (CJK in commit
+      # author / message breaks the HTTP header ByteString encoding).
+      - name: Strip git metadata
+        run: rm -rf .git
+
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
