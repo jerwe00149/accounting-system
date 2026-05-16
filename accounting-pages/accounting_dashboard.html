@@ -488,26 +488,58 @@ function extractQuotationVendor(itemName, remark) {
   return String(itemName).replace(/\n/g, ' ').substring(0, 30);
 }
 
+// Find the best-matching project for a quotation file's project name.
+// Uses longest-common-substring scoring; returns the project (or null if no decent match).
+function autoMatchProjectFromQuotation(quotationName) {
+  if (!quotationName || typeof DB === 'undefined' || !DB.projects) return null;
+  const q = String(quotationName).toLowerCase().replace(/\s/g, '');
+  let best = null, bestScore = 0;
+  for (const p of DB.projects) {
+    const name = (p.projectName || '').toLowerCase().replace(/\s/g, '');
+    if (!name) continue;
+    // Direct containment wins
+    if (name.includes(q) || q.includes(name)) {
+      const score = Math.min(name.length, q.length) * 10;
+      if (score > bestScore) { bestScore = score; best = p; }
+      continue;
+    }
+    // Otherwise, find longest common substring (>=3 chars)
+    let lcs = 0;
+    for (let i = 0; i < q.length; i++) {
+      for (let j = 0; j < name.length; j++) {
+        let k = 0;
+        while (i + k < q.length && j + k < name.length && q[i + k] === name[j + k]) k++;
+        if (k > lcs) lcs = k;
+      }
+    }
+    if (lcs >= 3 && lcs > bestScore) { bestScore = lcs; best = p; }
+  }
+  return bestScore >= 3 ? best : null;
+}
+
 // 初始化報價單上傳頁面
 function initQuotationPage() {
-  const select = document.getElementById('quotationProjectSelect');
-  if (select.options.length <= 1) {
-    loadProjectsForQuotation();
-  }
+  // Always reload — DB might have new projects that weren't there last time we visited.
+  loadProjectsForQuotation();
 }
 
 function loadProjectsForQuotation() {
-  fetch('/api/data/archAccounting')
-    .then(r => r.json())
-    .then(data => {
-      const select = document.getElementById('quotationProjectSelect');
-      (data.projects || []).forEach(p => {
-        const opt = document.createElement('option');
-        opt.value = p.id;
-        opt.textContent = `[${p.year || ''}] ${p.projectName || '未命名'} - ${p.client || '未知客戶'}`;
-        select.appendChild(opt);
-      });
-    });
+  const select = document.getElementById('quotationProjectSelect');
+  // Reset (keeps the placeholder option)
+  select.innerHTML = '<option value="">-- 請選擇專案 --</option>';
+  const projects = (typeof DB !== 'undefined' ? DB.projects : []).slice();
+  // Sort newest first by year/businessNo
+  projects.sort((a, b) => {
+    const ya = a.year || '', yb = b.year || '';
+    if (ya !== yb) return yb.localeCompare(ya);
+    return (a.businessNo || '').localeCompare(b.businessNo || '');
+  });
+  projects.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = `[${p.year || ''}] ${p.businessNo || ''} ${p.projectName || '未命名'} - ${p.client || ''}`;
+    select.appendChild(opt);
+  });
 }
 
 // 處理報價單檔案上傳
@@ -581,16 +613,15 @@ async function handleQuotationFile(file) {
         }
         
         parsedQuotationVendors = vendors;
-        
-        // 自動選擇專案
+
+        // 自動匹配專案：用報價單上的案名跟所有專案做最長共同子字串比對
         const select = document.getElementById('quotationProjectSelect');
-        if (projectName.toLowerCase().includes('高鐵工業')) {
-          for (let i = 0; i < select.options.length; i++) {
-            if (select.options[i].text.toLowerCase().includes('高鐵工業')) {
-              select.value = select.options[i].value;
-              break;
-            }
-          }
+        const match = autoMatchProjectFromQuotation(projectName);
+        if (match) {
+          select.value = match.id;
+          showQuotationAlert(`🎯 自動匹配到案件：${match.businessNo || ''} ${match.projectName}（如需更改請從下拉選單選）`, 'success');
+        } else if (projectName) {
+          showQuotationAlert(`未能自動匹配「${projectName}」，請手動從下拉選單選專案`, 'error');
         }
         
         document.getElementById('quotationLoading').style.display = 'none';
@@ -618,98 +649,106 @@ function switchQuotTab(tab) {
   renderQuotationVendors();
 }
 
-async function renderQuotationVendors() {
+function renderQuotationVendors() {
   const container = document.getElementById('quotationVendorList');
   const select = document.getElementById('quotationProjectSelect');
   currentQuotationProjectId = select.value;
-  
+
   if (!currentQuotationProjectId) {
     container.innerHTML = '<p style="text-align:center;color:var(--text-light)">請先選擇專案</p>';
     document.getElementById('quotationTotal').textContent = '$0';
     return;
   }
-  
-  try {
-    const res = await fetch('/api/data/archAccounting');
-    const data = await res.json();
-    const project = (data.projects || []).find(p => p.id == currentQuotationProjectId);
-    projectQuotationVendors = project && project.vendors ? project.vendors : [];
-  } catch (e) {
-    projectQuotationVendors = [];
-  }
-  
-  const existingAmounts = projectQuotationVendors.map(v => v.amount);
+
+  // Read existing vendors directly from local DB (already synced from server on page load)
+  const project = (typeof DB !== 'undefined' ? DB.projects : []).find(p => p.id == currentQuotationProjectId);
+  projectQuotationVendors = project && project.vendors ? project.vendors : [];
+
+  // "Already imported" detection: same category AND same amount → considered already in
+  const existingKey = new Set(projectQuotationVendors.map(v => `${v.category}|${v.amount}`));
   let filtered = parsedQuotationVendors;
-  
   if (currentQuotTab === 'unpaid') {
-    filtered = parsedQuotationVendors.filter(v => !existingAmounts.includes(v.amount));
+    filtered = parsedQuotationVendors.filter(v => !existingKey.has(`${v.category}|${v.amount}`));
   } else if (currentQuotTab === 'paid') {
-    filtered = parsedQuotationVendors.filter(v => existingAmounts.includes(v.amount));
+    filtered = parsedQuotationVendors.filter(v => existingKey.has(`${v.category}|${v.amount}`));
   }
-  
+
   if (filtered.length === 0) {
     container.innerHTML = '<p style="text-align:center;color:var(--text-light)">無相符項目</p>';
     document.getElementById('quotationTotal').textContent = '$0';
     return;
   }
-  
+
   let html = '<table><thead><tr><th style="width:40px">✓</th><th>類別</th><th>廠商/項目</th><th class="text-right">金額</th><th>狀態</th></tr></thead><tbody>';
   let total = 0;
-  
+
   filtered.forEach((v, idx) => {
-    const isPaid = existingAmounts.includes(v.amount);
+    const isImported = existingKey.has(`${v.category}|${v.amount}`);
     total += v.amount;
     html += `<tr>
-      <td><input type="checkbox" class="vendor-checkbox" data-idx="${idx}" ${isPaid ? 'checked disabled' : ''}></td>
+      <td><input type="checkbox" class="vendor-checkbox" data-idx="${idx}" ${isImported ? 'checked disabled' : 'checked'}></td>
       <td><span style="background:#e0e7ff;color:#3730a3;padding:3px 8px;border-radius:4px;font-size:12px">${v.category || '-'}</span></td>
       <td>${v.name}</td>
       <td class="text-right mono">$${v.amount.toLocaleString()}</td>
-      <td style="color:${isPaid ? 'var(--success)' : 'var(--danger)'}">${isPaid ? '已付款' : '未付款'}</td>
+      <td style="color:${isImported ? 'var(--success)' : 'var(--warning)'}">${isImported ? '已匯入' : '待匯入'}</td>
     </tr>`;
   });
-  
+
   html += '</tbody></table>';
   container.innerHTML = html;
   document.getElementById('quotationTotal').textContent = '$' + total.toLocaleString();
 }
 
-async function saveQuotationVendors() {
+function saveQuotationVendors() {
   const projectId = document.getElementById('quotationProjectSelect').value;
   if (!projectId) {
     showQuotationAlert('請先選擇專案', 'error');
     return;
   }
-  
+
   const checkboxes = document.querySelectorAll('.vendor-checkbox:checked:not(:disabled)');
   const selectedIndices = Array.from(checkboxes).map(cb => parseInt(cb.dataset.idx));
   const selectedVendors = selectedIndices.map(i => parsedQuotationVendors[i]);
-  
+
   if (selectedVendors.length === 0) {
     showQuotationAlert('請至少選擇一個項目', 'error');
     return;
   }
-  
-  try {
-    const res = await fetch('/api/add-vendors', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ projectId: parseInt(projectId), vendors: selectedVendors })
-    });
-    const data = await res.json();
-    
-    if (data.success) {
-      showQuotationAlert('✅ 儲存成功！已更新 ' + data.addedCount + ' 個項目', 'success');
-      // 重新載入頁面數據
-      if (typeof loadDataFromServer === 'function') {
-        await loadDataFromServer();
-      }
-      setTimeout(() => renderQuotationVendors(), 500);
-    } else {
-      throw new Error(data.error);
-    }
-  } catch (e) {
-    showQuotationAlert('儲存失敗: ' + e.message, 'error');
+
+  // Find project in local DB and merge vendors directly. saveData() syncs to server.
+  // Per-category merge rule: if project already has an entry for this category, update
+  // its amount + name (keep the existing name if it's a real user-entered one and the
+  // quotation row's looks like a generic item label).
+  const project = DB.projects.find(p => p.id == projectId);
+  if (!project) {
+    showQuotationAlert('找不到該專案', 'error');
+    return;
   }
+  if (!project.vendors) project.vendors = [];
+
+  let added = 0, updated = 0;
+  selectedVendors.forEach(qv => {
+    const existing = project.vendors.find(v => v.category === qv.category);
+    if (existing) {
+      existing.amount = qv.amount;
+      // Only overwrite vendor name if existing one is the placeholder or empty
+      if (!existing.vendor || existing.vendor === '(待填)') {
+        existing.vendor = qv.name;
+      }
+      updated++;
+    } else {
+      project.vendors.push({ category: qv.category, vendor: qv.name, amount: qv.amount });
+      added++;
+    }
+  });
+
+  saveData(); // persists to localStorage and POSTs to server
+  showQuotationAlert(`✅ 已匯入到「${project.projectName || project.businessNo}」：新增 ${added} 筆、更新 ${updated} 筆`, 'success');
+
+  // Refresh dependent views if currently active
+  if (typeof renderProjects === 'function') renderProjects();
+  if (typeof renderSubcontractors === 'function') renderSubcontractors();
+  setTimeout(() => renderQuotationVendors(), 200);
 }
 
 function showQuotationAlert(msg, type) {
@@ -749,7 +788,7 @@ if (stored) {
   } catch(e) { localStorage.removeItem('archAccounting'); }
 }
 </script>
-<script src="app.js?v=20260517c"></script>
+<script src="app.js?v=20260517d"></script>
 <script>
 // Hash routing — apply on DOMContentLoaded so it doesn't depend on the API fetch finishing.
 function applyHashRoute() {
