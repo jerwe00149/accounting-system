@@ -36,6 +36,33 @@ jobs:
       - name: Strip git metadata
         run: rm -rf .git
 
+      - name: Debug — find 輪 in environment
+        run: |
+          echo "=== GitHub event JSON ==="
+          cat "$GITHUB_EVENT_PATH" | python3 -c "
+          import json, sys
+          d = json.load(sys.stdin)
+          def find(obj, path=''):
+              if isinstance(obj, str):
+                  if any(ord(c) > 127 for c in obj):
+                      print(f'  {path} = {obj!r}')
+              elif isinstance(obj, dict):
+                  for k, v in obj.items(): find(v, f'{path}.{k}')
+              elif isinstance(obj, list):
+                  for i, v in enumerate(obj): find(v, f'{path}[{i}]')
+          find(d)
+          "
+          echo ""
+          echo "=== env vars with non-ASCII ==="
+          env | python3 -c "
+          import sys
+          for line in sys.stdin:
+            if any(ord(c) > 127 for c in line):
+              print(line.rstrip())
+          "
+          echo "(no env var with CJK chars if blank)"
+        continue-on-error: true
+
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/pages-action@v1
         with:
