@@ -31,4 +31,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: 9145b005da7045e103f94704bc2038c6
+          # Pin wrangler 4.x — 3.90.0 (the action's default) crashes when commit
+          # messages contain non-ASCII chars due to a ByteString header bug.
+          wranglerVersion: '4.92.0'
           command: pages deploy accounting-pages --project-name=arch-accounting --branch=main --commit-dirty=true
