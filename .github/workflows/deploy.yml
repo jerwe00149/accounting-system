@@ -26,48 +26,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 22
+      - name: Setup Node.js 24
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'
 
       # Remove .git so wrangler can't read commit metadata (CJK in commit
       # author / message breaks the HTTP header ByteString encoding).
       - name: Strip git metadata
         run: rm -rf .git
 
-      - name: Debug — find 輪 in environment
-        run: |
-          echo "=== GitHub event JSON ==="
-          cat "$GITHUB_EVENT_PATH" | python3 -c "
-          import json, sys
-          d = json.load(sys.stdin)
-          def find(obj, path=''):
-              if isinstance(obj, str):
-                  if any(ord(c) > 127 for c in obj):
-                      print(f'  {path} = {obj!r}')
-              elif isinstance(obj, dict):
-                  for k, v in obj.items(): find(v, f'{path}.{k}')
-              elif isinstance(obj, list):
-                  for i, v in enumerate(obj): find(v, f'{path}[{i}]')
-          find(d)
-          "
-          echo ""
-          echo "=== env vars with non-ASCII ==="
-          env | python3 -c "
-          import sys
-          for line in sys.stdin:
-            if any(ord(c) > 127 for c in line):
-              print(line.rstrip())
-          "
-          echo "(no env var with CJK chars if blank)"
-        continue-on-error: true
-
       - name: Deploy to Cloudflare Pages
-        uses: cloudflare/pages-action@v1
+        uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: 9145b005da7045e103f94704bc2038c6
-          projectName: arch-accounting
-          directory: accounting-pages
-          branch: main
+          wranglerVersion: '4.78.0'
+          command: pages deploy accounting-pages --project-name=arch-accounting --branch=main --commit-dirty=true
