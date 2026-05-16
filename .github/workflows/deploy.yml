@@ -39,4 +39,7 @@ jobs:
           # Pin wrangler 4.x — 3.90.0 (the action's default) crashes when commit
           # messages contain non-ASCII chars due to a ByteString header bug.
           wranglerVersion: '4.92.0'
-          command: pages deploy accounting-pages --project-name=arch-accounting --branch=main --commit-dirty=true
+          # Pass --commit-message explicitly (ASCII only). Wrangler otherwise auto-reads
+          # the latest commit message via git, and chokes if it contains non-ASCII chars
+          # (commits HTTP headers must be ByteString; CJK chars > 0xFF break that).
+          command: pages deploy accounting-pages --project-name=arch-accounting --branch=main --commit-dirty=true --commit-message="Auto-deploy from GitHub Actions" --commit-hash=${{ github.sha }}
