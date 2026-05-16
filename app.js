@@ -386,13 +386,17 @@ function showExtraPeriods(projectId){
 
 function saveData(){
   localStorage.setItem(STORE_KEY, JSON.stringify(DB));
-  // Also save to server (fire-and-forget)
+  // Also save to server (fire-and-forget). accounting-server.js only
+  // implements POST for this route — PUT returns 405 Method Not Allowed,
+  // which caused every save to silently fail and then loadDataFromServer
+  // on next page load would clobber localStorage with stale server data.
   if(_useServer){
     fetch(API_BASE + '/archAccounting', {
-      method: 'PUT',
+      method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(DB)
-    }).catch(e => console.warn('Server save failed:', e));
+    }).then(r => { if (!r.ok) console.warn('Server save HTTP', r.status); })
+      .catch(e => console.warn('Server save failed:', e));
   }
 }
 function clearAllData(){DB=defaultDB();saveData();refreshAll();toast('資料已清除','info')}
