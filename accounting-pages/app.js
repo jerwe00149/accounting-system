@@ -1090,13 +1090,22 @@ function renderSubByProject(el,subPayables){
   });
   html+='<th style="padding:12px 8px;text-align:right;font-weight:600;font-size:.8rem;color:#dc2626">合計</th><th style="padding:12px 8px;text-align:right;font-weight:600;font-size:.8rem;color:#059669">合約金額</th><th style="padding:12px 8px;text-align:right;font-weight:600;font-size:.8rem;color:#7c3aed">佔比</th></tr></thead><tbody>';
   
-  let projectsWithVendors = DB.projects.filter(p => p.vendors && p.vendors.length);
-  console.log('Projects total:', DB.projects.length, 'With vendors:', projectsWithVendors.length);
+  // Show ALL projects so user can fill in subcontractor data even if they haven't
+  // uploaded a contract or quotation. Empty cells render as "—" and are clickable
+  // to open the inline edit dialog.
+  let projectsWithVendors = DB.projects.slice();
   if(yf) projectsWithVendors = projectsWithVendors.filter(p => p.year === yf);
-  
+  // Sort: year desc, businessNo asc — newest first, then numeric
+  projectsWithVendors.sort((a, b) => {
+    const ya = a.year || '', yb = b.year || '';
+    if (ya !== yb) return yb.localeCompare(ya);
+    return (a.businessNo || '').localeCompare(b.businessNo || '');
+  });
+
   projectsWithVendors.forEach(p => {
+    const vendors = p.vendors || [];
     const catAmts = cats.map(cat => {
-      const v = p.vendors.find(x => x.category === cat);
+      const v = vendors.find(x => x.category === cat);
       return v ? v : null;
     });
     const total = catAmts.reduce((s, a) => s + (a ? a.amount : 0), 0);
@@ -1124,9 +1133,9 @@ function renderSubByProject(el,subPayables){
       <td style="padding:10px 8px;text-align:right"><span style="padding:2px 8px;background:${pct>50?'#fef2f2':pct>30?'#fffbeb':'#f0fdf4'};color:${pct>50?'#dc2626':pct>30?'#d97706':'#059669'};border-radius:4px;font-size:.75rem;font-weight:600">${pct > 0 ? pct.toFixed(1) + '%' : '-'}</span></td></tr>`;
   });
   
-  const totalByCat = cats.map(cat => 
+  const totalByCat = cats.map(cat =>
     projectsWithVendors.reduce((s, p) => {
-      const v = p.vendors.find(x => x.category === cat);
+      const v = (p.vendors || []).find(x => x.category === cat);
       return s + (v ? v.amount : 0);
     }, 0)
   );
