@@ -36,9 +36,10 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: 9145b005da7045e103f94704bc2038c6
-          # Pin wrangler 4.x — 3.90.0 (the action's default) crashes when commit
-          # messages contain non-ASCII chars due to a ByteString header bug.
-          wranglerVersion: '4.92.0'
+          # Pin wrangler 4.78.0 — 4.92.0 has a regression that throws
+          # "Cannot convert argument to a ByteString" on this repo (probably
+          # reads CJK chars from somewhere into an HTTP header). 4.78.0 works.
+          wranglerVersion: '4.78.0'
           # Pass --commit-message explicitly (ASCII only). Wrangler otherwise auto-reads
           # the latest commit message via git, and chokes if it contains non-ASCII chars
           # (commits HTTP headers must be ByteString; CJK chars > 0xFF break that).
