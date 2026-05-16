@@ -967,6 +967,46 @@ function switchSubView(view){
   renderSubcontractors();
 }
 
+// One-click: add placeholder vendor entries (vendor="(待填)", amount=0) for every
+// (project, category) combination that doesn't already have an entry. Useful for
+// bootstrapping the subcontractor matrix so user can edit cell-by-cell without
+// having to upload contracts first.
+const DEFAULT_SUB_CATS = ['結構/鑽探','水電/消防','跑照/3D','測量/建築線','綠建築/估算','水保/大地','監造'];
+function initAllSubcontractors(){
+  // First pass: count what would be added (without mutating).
+  let wouldAdd = 0;
+  let projectsToTouch = 0;
+  DB.projects.forEach(p => {
+    const existing = p.vendors || [];
+    let touchedThis = false;
+    DEFAULT_SUB_CATS.forEach(cat => {
+      if(!existing.some(v => v.category === cat)){
+        wouldAdd++;
+        touchedThis = true;
+      }
+    });
+    if(touchedThis) projectsToTouch++;
+  });
+  if(wouldAdd === 0){
+    toast('所有案件都已有完整副委託欄位，無需預填','info');
+    return;
+  }
+  if(!confirm(`將為 ${projectsToTouch} 個案件補上 ${wouldAdd} 筆空白副委託欄位（廠商=「(待填)」，金額=0）。\n之後可以逐格點開編輯成實際資料。\n\n繼續？`)) return;
+
+  // Second pass: actually mutate.
+  DB.projects.forEach(p => {
+    if(!p.vendors) p.vendors = [];
+    DEFAULT_SUB_CATS.forEach(cat => {
+      if(!p.vendors.some(v => v.category === cat)){
+        p.vendors.push({category: cat, vendor: '(待填)', amount: 0});
+      }
+    });
+  });
+  saveData();
+  renderSubcontractors();
+  toast(`已預填 ${wouldAdd} 筆空白副委託到 ${projectsToTouch} 個案件`);
+}
+
 function renderSubcontractors(){
   // Populate year filter
   const yearSet=new Set();
@@ -1077,10 +1117,13 @@ function renderSubByProject(el,subPayables){
   });
   html+='</div>';
   
-  // Add "新增複委託" button
-  html+=`<div style="margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+  // Add "新增複委託" / "預填" buttons
+  html+=`<div style="margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
     <p style="font-size:.8rem;color:#64748b;margin:0">💡 點擊任何儲存格可編輯或新增複委託資料</p>
-    <button class="btn btn-primary btn-sm" onclick="showAddVendorModal()">＋ 新增複委託</button>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-warning btn-sm" onclick="initAllSubcontractors()">🪄 預填所有案件副委託</button>
+      <button class="btn btn-primary btn-sm" onclick="showAddVendorModal()">＋ 新增複委託</button>
+    </div>
   </div>`;
   
   html+='<div class="table-wrap" style="overflow-x:auto"><table style="min-width:1200px"><thead><tr style="background:#f8fafc"><th style="padding:12px 8px;text-align:left;font-weight:600;font-size:.8rem;color:#475569">業務編號</th><th style="padding:12px 8px;text-align:left;font-weight:600;font-size:.8rem;color:#475569">案名</th>';
