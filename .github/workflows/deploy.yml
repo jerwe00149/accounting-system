@@ -36,6 +36,25 @@ jobs:
       - name: Strip git metadata
         run: rm -rf .git
 
+      - name: Sanitize event JSON (remove CJK author/committer names)
+        run: |
+          python3 -c "
+          import json, os
+          path = os.environ['GITHUB_EVENT_PATH']
+          with open(path) as f: d = json.load(f)
+          def sanitize(obj):
+              if isinstance(obj, dict):
+                  for k in ('name', 'email', 'username'):
+                      if k in obj and isinstance(obj[k], str):
+                          obj[k] = ''.join(c if ord(c) < 128 else '?' for c in obj[k])
+                  for v in obj.values(): sanitize(v)
+              elif isinstance(obj, list):
+                  for item in obj: sanitize(item)
+          sanitize(d)
+          with open(path, 'w') as f: json.dump(d, f)
+          print('Event JSON sanitized')
+          "
+
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
