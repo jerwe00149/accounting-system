@@ -1151,7 +1151,9 @@ function renderSubByProject(el,subPayables){
       const v = vendors.find(x => x.category === cat);
       return v ? v : null;
     });
-    const total = catAmts.reduce((s, a) => s + (a ? a.amount : 0), 0);
+    // 合計 sums ALL vendor amounts (incl. non-standard categories like 室內裝修、估算、其他)
+    // so it stays in sync with the 副委託費用 column in the 案件收支 page.
+    const total = vendors.reduce((s, v) => s + (v.amount || 0), 0);
     const pct = p.contractAmt ? (total / p.contractAmt * 100) : 0;
     
     html += `<tr style="border-bottom:1px solid #e2e8f0">
@@ -1182,7 +1184,12 @@ function renderSubByProject(el,subPayables){
       return s + (v ? v.amount : 0);
     }, 0)
   );
-  const grandTotal = totalByCat.reduce((s, a) => s + a, 0);
+  // grandTotal sums ALL vendor amounts (incl. non-standard categories), matching
+  // the 副委託費用 column total in the 案件收支 page.
+  const grandTotal = projectsWithVendors.reduce(
+    (s, p) => s + (p.vendors || []).reduce((s2, v) => s2 + (v.amount || 0), 0),
+    0
+  );
   const totalContract = projectsWithVendors.reduce((s, p) => s + (p.contractAmt || 0), 0);
   const totalPct = totalContract ? (grandTotal / totalContract * 100) : 0;
   
