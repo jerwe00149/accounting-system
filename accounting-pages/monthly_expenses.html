@@ -536,107 +536,212 @@ function handleFiles(files){
     reader.readAsArrayBuffer(f);
   });
 }
+// 標準員工薪資項目 (順序固定，缺項自動補)
+const EMP_ITEM_TEMPLATE = [
+  '本俸底薪',
+  '職務加給+技術加給',
+  '加班費',
+  '請假扣款',
+  '勞保費(自付額)',
+  '健保費(自付額)',
+  '勞退6%',
+  '代扣所得稅',
+  '職業加給(獎金+專案獎金)',
+  '分紅 員工獎金',
+  '三節',
+  '年終獎金',
+];
+
+// xls 月份 sheet 裡的細項名稱 → 月支出表標準項目名稱
+//   value: { target: 標準項目名, sign: +1 or -1 }
+const XLS_ITEM_MAP = {
+  '基本工資': {target:'本俸底薪', sign:+1},
+  '薪資':     {target:'本俸底薪', sign:+1},
+  '職務加給': {target:'職務加給+技術加給', sign:+1},
+  '技術加給': {target:'職務加給+技術加給', sign:+1},
+  '特休加給': {target:'職務加給+技術加給', sign:+1},
+  '平日加班給薪(1-2HR)': {target:'加班費', sign:+1},
+  '平日加班給薪(3~5HR)': {target:'加班費', sign:+1},
+  '假日加班給薪':         {target:'加班費', sign:+1},
+  '事假':                 {target:'請假扣款', sign:-1},
+  '病假':                 {target:'請假扣款', sign:-1},
+  '曠職':                 {target:'請假扣款', sign:-1},
+  '勞保費(自付額)':       {target:'勞保費(自付額)', sign:-1},
+  '健保費(自付額)':       {target:'健保費(自付額)', sign:-1},
+  '代扣所得稅':           {target:'代扣所得稅', sign:-1},
+  '其他代扣':             {target:'代扣所得稅', sign:-1},
+};
+
+function ensureEmpItems(items){
+  // 確保 items 包含所有標準項目（缺的補上）；保留現有資料
+  const byName = new Map(items.map(it=>[it.name, it]));
+  const result = [];
+  EMP_ITEM_TEMPLATE.forEach(name=>{
+    if(byName.has(name)){
+      result.push(byName.get(name));
+      byName.delete(name);
+    } else {
+      result.push({name, v:new Array(12).fill(null)});
+    }
+  });
+  // 把不在 template 裡的（使用者自訂的）保留在最後
+  byName.forEach(it=>result.push(it));
+  return result;
+}
+
+// 將該月份的某個標準項目欄位 += value（null 變成數字、原有數字累加）
+function addEmpItemValue(items, name, monthIdx, value){
+  if(value==null||isNaN(value)) return;
+  const it = items.find(x=>x.name===name);
+  if(!it) return;
+  const cur = it.v[monthIdx];
+  it.v[monthIdx] = Math.round((cur==null?0:cur) + value);
+}
+
 function processXLS(buf, fname){
   const log=document.getElementById('importLog');
   try{
     const wb=XLSX.read(new Uint8Array(buf),{type:'array'});
 
-    // 優先讀「基本資料」（每月薪資總計 + 年終/三節獎金），找不到才退回「支領表」
-    const sheetName = wb.SheetNames.find(s=>s==='基本資料') || wb.SheetNames.find(s=>s==='支領表');
-    if(!sheetName){
-      addBadge(log,'err',`❌ ${fname}：找不到「基本資料」或「支領表」工作表`);
-      return;
-    }
-    const ws=wb.Sheets[sheetName];
-    const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
-
-    // ── 取員工姓名 ──
-    // 「基本資料」格式：r[3]='姓名：', r[4]=員工姓名
-    // 「支領表」格式：r[0]='薪工資受領人姓名:', r[1]=員工姓名
+    // ── 取員工姓名 (從「基本資料」或「支領表」或檔名) ──
     let empName=null;
-    for(const r of rows){
-      if((r[3]==='姓名：'||r[3]==='姓名:'||r[3]==='姓名')&&r[4]){empName=String(r[4]).trim();break;}
-      if(typeof r[0]==='string'&&r[0].replace(/\s/g,'').startsWith('薪工資受領人姓名')&&r[1]){empName=String(r[1]).trim();break;}
+    const nameSheet = wb.SheetNames.find(s=>s==='基本資料') || wb.SheetNames.find(s=>s==='支領表');
+    if(nameSheet){
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[nameSheet],{header:1,defval:null});
+      for(const r of rows){
+        if((r[3]==='姓名：'||r[3]==='姓名:'||r[3]==='姓名')&&r[4]){empName=String(r[4]).trim();break;}
+        if(typeof r[0]==='string'&&r[0].replace(/\s/g,'').startsWith('薪工資受領人姓名')&&r[1]){empName=String(r[1]).trim();break;}
+      }
     }
     if(!empName){
-      // 最後嘗試從檔名解析：例如 "01.鍾宜娟薪資條(115.).xls"
       const fnMatch = fname.match(/[一-鿿]{2,4}(?=薪資|薪工資)/);
       if(fnMatch) empName = fnMatch[0];
     }
-    if(!empName){addBadge(log,'err',`❌ ${fname}：無法讀取員工姓名（檢查「基本資料」或檔名格式）`);return;}
+    if(!empName){addBadge(log,'err',`❌ ${fname}：無法讀取員工姓名`);return;}
 
-    // ── 取每月支出薪資 ──
-    const monthly=new Array(12).fill(null);
-    const extras={}; // 年終/三節獎金 → 存入對應月份
-    const BONUS_MONTH={'年終獎金':1,'開工獎金':2,'端午獎金':6,'中秋獎金':9};
-
-    for(const r of rows){
-      const col0=r[0],col1=r[1],col2=r[2];
-      // 月份金額：col0=月份(1-12), col1='月', col2=金額
-      if(typeof col0==='number'&&col0>=1&&col0<=12&&col1==='月'&&col2!=null){
-        monthly[col0-1]=Math.round(+col2);
-      }
-      // 獎金行：col0 包含「年終獎金」「開工獎金」「端午獎金」「中秋獎金」
-      if(typeof col0==='string'&&col2!=null){
-        const stripped=col0.replace(/\d+/g,'').trim(); // 把 "114年終獎金" 變成 "年終獎金"
-        const bKey=Object.keys(BONUS_MONTH).find(k=>stripped.includes(k));
-        if(bKey){
-          const bm=BONUS_MONTH[bKey]-1;
-          extras[bm]=(extras[bm]||0)+Math.round(+col2);
-        }
-      }
-    }
-
-    // 將獎金加進對應月份
-    Object.entries(extras).forEach(([m,v])=>{
-      monthly[+m]=(monthly[+m]||0)+v;
-    });
-
-    const filled=monthly.filter(v=>v!=null).length;
-    if(filled===0){
-      addBadge(log,'err',`❌ ${empName}：找不到任何月份的薪資資料`);
-      return;
-    }
-
-    // ── 更新「公司基本固定開銷」對應列 ──
-    let mi=mainData.items.findIndex(it=>it.name.includes(empName));
-    let createdMain=false;
-    if(mi<0){
-      // 自動新增一列
-      const newId = Math.max(...mainData.items.map(x=>x.id||0)) + 1;
-      mainData.items.push({id:newId, name:`薪資支出-${empName}`, v:[...monthly]});
-      mi = mainData.items.length - 1;
-      createdMain = true;
-    } else {
-      mainData.items[mi].v=[...monthly];
-    }
-
-    // ── 更新「員工薪資明細」 ──
+    // ── 比對 / 建立員工 ──
     let ei=empData.employees.findIndex(emp=>{
       const clean=emp.name.replace(/^[a-z]\.\s*/,'').replace(/[（(].*[)）]/,'').trim();
       return clean===empName||clean.includes(empName)||empName.includes(clean);
     });
     let createdEmp=false;
     if(ei<0){
-      // 自動新增員工
       const letters=['a','b','c','d','e','f','g','h','i','j','k','l','m','n'];
       const letter=letters[empData.employees.length]||'x';
       empData.employees.push({
         key:empName.toLowerCase().replace(/\s/g,''),
         name:`${letter}. ${empName}`,
-        items:[{name:'薪資合計 (薪資條匯入)', v:[...monthly]}]
+        items: ensureEmpItems([])
       });
       ei = empData.employees.length - 1;
       createdEmp = true;
     } else {
-      empData.employees[ei].items=[{name:`薪資合計 (薪資條匯入)`,v:[...monthly]}];
+      // 確保有所有標準欄位（原有資料保留）
+      empData.employees[ei].items = ensureEmpItems(empData.employees[ei].items);
+    }
+    const items = empData.employees[ei].items;
+
+    // ── 逐月解析 sheet "01"~"12" 細項 ──
+    const monthlyTotals = new Array(12).fill(null);
+    let monthsImported = 0;
+
+    for(let m=1;m<=12;m++){
+      const sheetKey = String(m).padStart(2,'0');
+      const ws = wb.Sheets[sheetKey];
+      if(!ws) continue;
+      const rows = XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
+
+      // 先清空該月所有已知標準項目（覆蓋而非累加）
+      EMP_ITEM_TEMPLATE.forEach(name=>{
+        const it = items.find(x=>x.name===name);
+        if(it) it.v[m-1] = null;
+      });
+
+      let hadData = false;
+      let monthSum = 0; // 給/扣總和（薪資總額）
+      for(const r of rows){
+        if(!r) continue;
+        const label = typeof r[1]==='string' ? r[1].trim() : null;
+        const give = (typeof r[2]==='number') ? r[2] : null;
+        const deduct = (typeof r[3]==='number') ? r[3] : null;
+        if(!label) continue;
+        const map = XLS_ITEM_MAP[label];
+        if(!map) continue;
+
+        const value = (give!=null) ? give : (deduct!=null ? deduct : null);
+        if(value==null) continue;
+
+        addEmpItemValue(items, map.target, m-1, value * map.sign);
+        monthSum += value * map.sign;
+        hadData = true;
+
+        // 勞退 6% 特別處理：xls 裡是「應領金額合計」之後另外列在備註，需特別找
+      }
+
+      // 找「勞6%保退休金」(通常在 row 20 附近)
+      for(const r of rows){
+        if(!r) continue;
+        const c1 = typeof r[1]==='string' ? r[1] : '';
+        if(c1.includes('勞6%')||c1.includes('提撥勞')){
+          const v = (typeof r[2]==='number') ? r[2] : null;
+          if(v!=null) addEmpItemValue(items, '勞退6%', m-1, v);
+          break;
+        }
+      }
+
+      // 找「實付金額」當月份總計 (給「公司基本固定開銷」用)
+      for(const r of rows){
+        if(!r) continue;
+        const c1 = typeof r[1]==='string' ? r[1] : '';
+        if(c1.includes('實付金額')){
+          const v = (typeof r[3]==='number') ? r[3] : (typeof r[2]==='number' ? r[2] : null);
+          if(v!=null){monthlyTotals[m-1] = Math.round(v); break;}
+        }
+      }
+      if(monthlyTotals[m-1]==null && hadData) monthlyTotals[m-1] = Math.round(monthSum);
+      if(hadData) monthsImported++;
     }
 
-    // 重新渲染並儲存
+    // ── 處理基本資料的獎金行 (年終/開工/端午/中秋 → 三節 / 年終獎金) ──
+    if(nameSheet){
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[nameSheet],{header:1,defval:null});
+      const BONUS_MAP = {
+        '年終獎金': {month:1,  target:'年終獎金'},
+        '開工獎金': {month:2,  target:'三節'},
+        '端午獎金': {month:6,  target:'三節'},
+        '中秋獎金': {month:9,  target:'三節'},
+      };
+      for(const r of rows){
+        const c0 = typeof r[0]==='string' ? r[0] : null;
+        const c2 = typeof r[2]==='number' ? r[2] : null;
+        if(!c0||c2==null) continue;
+        const stripped = c0.replace(/\d+/g,'').trim();
+        const bKey = Object.keys(BONUS_MAP).find(k=>stripped.includes(k));
+        if(!bKey) continue;
+        const cfg = BONUS_MAP[bKey];
+        addEmpItemValue(items, cfg.target, cfg.month-1, c2);
+        // 也把獎金加到該月「公司基本固定開銷」總計
+        monthlyTotals[cfg.month-1] = (monthlyTotals[cfg.month-1]||0) + Math.round(c2);
+      }
+    }
+
+    // ── 更新「公司基本固定開銷」對應列 ──
+    let mi=mainData.items.findIndex(it=>it.name.includes(empName));
+    let createdMain=false;
+    if(mi<0){
+      const newId = Math.max(...mainData.items.map(x=>x.id||0)) + 1;
+      mainData.items.push({id:newId, name:`薪資支出-${empName}`, v:[...monthlyTotals]});
+      createdMain = true;
+    } else {
+      // 只覆蓋有匯入到的月份，沒匯入的保留原值
+      monthlyTotals.forEach((v,idx)=>{ if(v!=null) mainData.items[mi].v[idx] = v; });
+    }
+
     renderEmpTabs();renderMain();doSave();
 
-    const created = (createdMain||createdEmp) ? '（自動新增員工列）' : '';
-    addBadge(log,'ok',`✅ ${empName}：已匯入 ${filled} 個月份 ${created}`);
+    const filled = monthlyTotals.filter(v=>v!=null).length;
+    const tag = (createdMain||createdEmp) ? '（自動新增員工列）' : '';
+    addBadge(log,'ok',`✅ ${empName}：細項已匯入 ${monthsImported} 個月 / 總計填入 ${filled} 個月 ${tag}`);
   }catch(err){
     addBadge(log,'err',`❌ ${fname}：解析失敗 (${err.message})`);
   }
