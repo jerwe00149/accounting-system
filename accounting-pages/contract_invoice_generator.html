@@ -955,7 +955,7 @@ function buildInvoiceHTML(d) {
       <div class="sec-title">請款金額</div>
       <div>
         請款金額計算：NT$ ${fmt(d.net)} 元<br>
-        (依報價單規定 ${fmt(d.gross)} 元)<br>
+        (依合約規定 ${fmt(d.gross)} 元)<br>
         稅金 ${fmt(d.gross)} × ${d.taxRate}% = ${fmt(d.tax)} 元（由甲方代扣繳）<br>
         <b>實收總金額 ${fmt(d.gross)} − ${fmt(d.tax)} = ${fmt(d.net)} 元</b>
       </div>
