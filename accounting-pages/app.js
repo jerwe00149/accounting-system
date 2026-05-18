@@ -625,10 +625,17 @@ function renderProjects(){
       <td class="text-right mono" style="font-weight:600;color:${outstanding>0?'var(--danger)':'var(--success)'}">${fmtMoney(outstanding)}</td>
       <td style="font-size:.8rem">${(()=>{
         const vendors=p.vendors||[];
-        if(vendors.length){
-          const total=vendors.reduce((s,x)=>s+(x.amount||0),0);
+        const vendorsTotal=vendors.reduce((s,x)=>s+(x.amount||0),0);
+        if(vendors.length && vendorsTotal>0){
           const detail=vendors.map(x=>`${x.vendor||'?'}: ${fmtMoney(x.amount)} (${x.category})`).join('\\n');
-          return'<span class="tip-cell" style="color:var(--warning);font-weight:600;cursor:pointer" onclick="showVendorsPopup(\''+p.id+'\')">'+fmtMoney(total)+'<span class="tip-box" style="white-space:pre-line;text-align:left">'+detail+'</span></span>';
+          return'<span class="tip-cell" style="color:var(--warning);font-weight:600;cursor:pointer" onclick="showVendorsPopup(\''+p.id+'\')">'+fmtMoney(vendorsTotal)+'<span class="tip-box" style="white-space:pre-line;text-align:left">'+detail+'</span></span>';
+        }
+        // Fallback: linked subcontractor-category payables (e.g. manually entered in 應付帳款)
+        const linkedSub=DB.payables.filter(x=>x.projectId===p.id&&x.category==='subcontractor');
+        const linkedTotal=linkedSub.reduce((s,x)=>s+(x.amount||0),0);
+        if(linkedTotal>0){
+          const detail=linkedSub.map(x=>`${x.vendor||'?'}: ${fmtMoney(x.amount)}\\n  ${x.description||''}`).join('\\n');
+          return'<span class="tip-cell" style="color:var(--warning);font-weight:600;cursor:pointer" onclick="showLinkedPayablesPopup(\''+p.id+'\')" title="來自應付帳款">'+fmtMoney(linkedTotal)+'<span class="tip-box" style="white-space:pre-line;text-align:left">'+detail+'</span></span>';
         }
         return'<span style="color:#cbd5e1">-</span>';
       })()}
