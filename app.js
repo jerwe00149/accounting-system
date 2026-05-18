@@ -631,11 +631,20 @@ function renderProjects(){
       <td class="text-right mono" style="font-weight:600;color:var(--success)">${fmtMoney(received)}</td>
       <td class="text-right mono" style="font-weight:600;color:${outstanding>0?'var(--danger)':'var(--success)'}">${fmtMoney(outstanding)}</td>
       <td style="font-size:.8rem">${(()=>{
+        // 優先用 vendors[]（Excel 報價單匯入）
         const vendors=p.vendors||[];
         if(vendors.length){
           const total=vendors.reduce((s,x)=>s+(x.amount||0),0);
           const detail=vendors.map(x=>`${x.vendor||'?'}: ${fmtMoney(x.amount)} (${x.category})`).join('\\n');
           return'<span class="tip-cell" style="color:var(--warning);font-weight:600;cursor:pointer" onclick="showVendorsPopup(\''+p.id+'\')">'+fmtMoney(total)+'<span class="tip-box" style="white-space:pre-line;text-align:left">'+detail+'</span></span>';
+        }
+        // Fallback：DB.payables 裡 category=subcontractor 的關聯應付款
+        // （之前這欄完全沒查 payables，造成只在「複委託管理」看得到、案件收支表沒顯示）
+        const linked=DB.payables.filter(x=>x.projectId===p.id&&x.category==='subcontractor');
+        if(linked.length){
+          const total=linked.reduce((s,x)=>s+(x.amount||0),0);
+          const detail=linked.map(x=>`${x.vendor||'?'}: ${fmtMoney(x.amount)}${x.status==='paid'?' (已付)':' (待付)'}`).join('\\n');
+          return'<span class="tip-cell" style="color:var(--warning);font-weight:600;cursor:pointer" onclick="showLinkedPayablesPopup(\''+p.id+'\')">'+fmtMoney(total)+'<span class="tip-box" style="white-space:pre-line;text-align:left">'+detail+'</span></span>';
         }
         return'<span style="color:#cbd5e1">-</span>';
       })()}
