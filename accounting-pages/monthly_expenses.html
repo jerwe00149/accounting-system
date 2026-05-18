@@ -126,7 +126,9 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
 <div class="content">
   <div class="section active" id="sec-main">
     <div class="summary-bar" id="mainSummary"></div>
-    <div class="sec-title">公司基本月固定開銷</div>
+    <div class="sec-title">公司基本月固定開銷
+      <button class="btn btn-g" style="margin-left:auto;font-size:12px;padding:4px 10px" onclick="addMainItem()">＋ 新增項目</button>
+    </div>
     <div class="tbl-wrap"><table class="etbl" id="mainTbl"></table></div>
   </div>
   <div class="section" id="sec-emp">
@@ -327,7 +329,26 @@ function renderMain(){
   const gt0=mainData.items.reduce((s,it)=>s+rS(it.v),0);
   mainData.items.forEach((item,ri)=>{
     const tr=document.createElement('tr');const rT=rS(item.v);
-    tr.innerHTML=`<td class="td-id">${item.id}</td><td class="td-name">${item.name}</td>`;
+    // ID + 可編輯項目名稱 + 刪除按鈕
+    const idTd=document.createElement('td');idTd.className='td-id';idTd.textContent=item.id;tr.appendChild(idTd);
+    const nameTd=document.createElement('td');nameTd.className='td-name';
+    const nameInput=document.createElement('input');
+    nameInput.type='text';nameInput.value=item.name;
+    nameInput.style.cssText='width:100%;border:none;background:transparent;font:inherit;color:inherit;padding:2px 4px;border-radius:3px';
+    nameInput.onfocus=()=>nameInput.style.background='#fff8e1';
+    nameInput.onblur=()=>{nameInput.style.background='transparent';mainData.items[ri].name=nameInput.value;doSave();};
+    nameTd.appendChild(nameInput);
+    const delBtn=document.createElement('button');
+    delBtn.textContent='×';delBtn.title='刪除此項目';
+    delBtn.style.cssText='margin-left:6px;border:none;background:transparent;color:#ef4444;cursor:pointer;font-size:14px;font-weight:700;padding:0 4px';
+    delBtn.onclick=()=>{
+      if(confirm(`確定要刪除「${item.name}」這項目嗎？\n12 個月的資料都會一起刪除。`)){
+        mainData.items.splice(ri,1);renderMain();doSave();
+      }
+    };
+    nameTd.appendChild(delBtn);
+    tr.appendChild(nameTd);
+
     item.v.forEach((cv,ci)=>{const td=document.createElement('td');td.appendChild(mkInput(cv,num=>{mainData.items[ri].v[ci]=num;updMain();doSave();}));tr.appendChild(td);});
     const ttd=document.createElement('td');ttd.className=`ct ${rT>=0?'pos':'neg'}`;ttd.id=`mr${ri}`;ttd.textContent=fm(rT);tr.appendChild(ttd);
     const ptd=document.createElement('td');ptd.className='cp';ptd.id=`mp${ri}`;ptd.textContent=gt0?fp(rT/gt0):'0.00%';tr.appendChild(ptd);
@@ -339,6 +360,14 @@ function renderMain(){
   tr.innerHTML+=`<td class="ct pos" id="mgt">${fm(gt)}</td><td></td>`;
   tbody.appendChild(tr);tbl.appendChild(tbody);updMainCard(gt);
 }
+function addMainItem(){
+  const name = prompt('新項目名稱：', '');
+  if(!name || !name.trim()) return;
+  const newId = (mainData.items.length ? Math.max(...mainData.items.map(x=>x.id||0)) : 0) + 1;
+  mainData.items.push({id:newId, name:name.trim(), v:new Array(12).fill(null)});
+  renderMain();doSave();
+}
+
 function updMain(){
   const gt=mainData.items.reduce((s,it)=>s+rS(it.v),0);
   mainData.items.forEach((item,ri)=>{
@@ -511,31 +540,47 @@ function processXLS(buf, fname){
   const log=document.getElementById('importLog');
   try{
     const wb=XLSX.read(new Uint8Array(buf),{type:'array'});
-    // ── 讀 支領表 ──
-    const wsName=wb.SheetNames.find(s=>s==='支領表');
-    if(!wsName){addBadge(log,'err',`❌ ${fname}：找不到「支領表」工作表`);return;}
-    const ws=wb.Sheets[wsName];
+
+    // 優先讀「基本資料」（每月薪資總計 + 年終/三節獎金），找不到才退回「支領表」
+    const sheetName = wb.SheetNames.find(s=>s==='基本資料') || wb.SheetNames.find(s=>s==='支領表');
+    if(!sheetName){
+      addBadge(log,'err',`❌ ${fname}：找不到「基本資料」或「支領表」工作表`);
+      return;
+    }
+    const ws=wb.Sheets[sheetName];
     const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
 
-    // 取員工姓名
+    // ── 取員工姓名 ──
+    // 「基本資料」格式：r[3]='姓名：', r[4]=員工姓名
+    // 「支領表」格式：r[0]='薪工資受領人姓名:', r[1]=員工姓名
     let empName=null;
     for(const r of rows){
-      if(r[3]==='姓名：'&&r[4]){empName=String(r[4]).trim();break;}
+      if((r[3]==='姓名：'||r[3]==='姓名:'||r[3]==='姓名')&&r[4]){empName=String(r[4]).trim();break;}
+      if(typeof r[0]==='string'&&r[0].replace(/\s/g,'').startsWith('薪工資受領人姓名')&&r[1]){empName=String(r[1]).trim();break;}
     }
-    if(!empName){addBadge(log,'err',`❌ ${fname}：無法讀取員工姓名`);return;}
+    if(!empName){
+      // 最後嘗試從檔名解析：例如 "01.鍾宜娟薪資條(115.).xls"
+      const fnMatch = fname.match(/[一-鿿]{2,4}(?=薪資|薪工資)/);
+      if(fnMatch) empName = fnMatch[0];
+    }
+    if(!empName){addBadge(log,'err',`❌ ${fname}：無法讀取員工姓名（檢查「基本資料」或檔名格式）`);return;}
 
-    // 取每月支出薪資
+    // ── 取每月支出薪資 ──
     const monthly=new Array(12).fill(null);
     const extras={}; // 年終/三節獎金 → 存入對應月份
-    const BONUS_MONTH={'114年終獎金':1,'年終獎金':1,'開工獎金':2,'端午獎金':6,'中秋獎金':9};
+    const BONUS_MONTH={'年終獎金':1,'開工獎金':2,'端午獎金':6,'中秋獎金':9};
+
     for(const r of rows){
       const col0=r[0],col1=r[1],col2=r[2];
+      // 月份金額：col0=月份(1-12), col1='月', col2=金額
       if(typeof col0==='number'&&col0>=1&&col0<=12&&col1==='月'&&col2!=null){
         monthly[col0-1]=Math.round(+col2);
       }
-      if(typeof col0==='string'){
-        const bKey=Object.keys(BONUS_MONTH).find(k=>col0.includes(k.replace('114','')));
-        if(bKey&&col2!=null){
+      // 獎金行：col0 包含「年終獎金」「開工獎金」「端午獎金」「中秋獎金」
+      if(typeof col0==='string'&&col2!=null){
+        const stripped=col0.replace(/\d+/g,'').trim(); // 把 "114年終獎金" 變成 "年終獎金"
+        const bKey=Object.keys(BONUS_MONTH).find(k=>stripped.includes(k));
+        if(bKey){
           const bm=BONUS_MONTH[bKey]-1;
           extras[bm]=(extras[bm]||0)+Math.round(+col2);
         }
@@ -543,28 +588,55 @@ function processXLS(buf, fname){
     }
 
     // 將獎金加進對應月份
-    Object.entries(extras).forEach(([m,v])=>{if(monthly[+m]!=null)monthly[+m]+=v;else monthly[+m]=v;});
+    Object.entries(extras).forEach(([m,v])=>{
+      monthly[+m]=(monthly[+m]||0)+v;
+    });
 
-    // 比對員工
-    const ei=empData.employees.findIndex(emp=>{
+    const filled=monthly.filter(v=>v!=null).length;
+    if(filled===0){
+      addBadge(log,'err',`❌ ${empName}：找不到任何月份的薪資資料`);
+      return;
+    }
+
+    // ── 更新「公司基本固定開銷」對應列 ──
+    let mi=mainData.items.findIndex(it=>it.name.includes(empName));
+    let createdMain=false;
+    if(mi<0){
+      // 自動新增一列
+      const newId = Math.max(...mainData.items.map(x=>x.id||0)) + 1;
+      mainData.items.push({id:newId, name:`薪資支出-${empName}`, v:[...monthly]});
+      mi = mainData.items.length - 1;
+      createdMain = true;
+    } else {
+      mainData.items[mi].v=[...monthly];
+    }
+
+    // ── 更新「員工薪資明細」 ──
+    let ei=empData.employees.findIndex(emp=>{
       const clean=emp.name.replace(/^[a-z]\.\s*/,'').replace(/[（(].*[)）]/,'').trim();
       return clean===empName||clean.includes(empName)||empName.includes(clean);
     });
-    if(ei<0){addBadge(log,'warn',`⚠️ ${empName}：找不到對應員工（${fname}）`);return;}
+    let createdEmp=false;
+    if(ei<0){
+      // 自動新增員工
+      const letters=['a','b','c','d','e','f','g','h','i','j','k','l','m','n'];
+      const letter=letters[empData.employees.length]||'x';
+      empData.employees.push({
+        key:empName.toLowerCase().replace(/\s/g,''),
+        name:`${letter}. ${empName}`,
+        items:[{name:'薪資合計 (薪資條匯入)', v:[...monthly]}]
+      });
+      ei = empData.employees.length - 1;
+      createdEmp = true;
+    } else {
+      empData.employees[ei].items=[{name:`薪資合計 (薪資條匯入)`,v:[...monthly]}];
+    }
 
-    // 更新 empData：單筆「薪資條月總計」
-    empData.employees[ei].items=[
-      {name:`薪資合計 (薪資條匯入)`,v:[...monthly]}
-    ];
-
-    // 更新 mainData 對應列
-    const mi=mainData.items.findIndex(it=>it.name.includes(empName));
-    if(mi>=0) mainData.items[mi].v=[...monthly];
-
-    // 重新渲染
+    // 重新渲染並儲存
     renderEmpTabs();renderMain();doSave();
-    const filled=monthly.filter(v=>v!=null).length;
-    addBadge(log,'ok',`✅ ${empName}：已匯入 ${filled} 個月份`);
+
+    const created = (createdMain||createdEmp) ? '（自動新增員工列）' : '';
+    addBadge(log,'ok',`✅ ${empName}：已匯入 ${filled} 個月份 ${created}`);
   }catch(err){
     addBadge(log,'err',`❌ ${fname}：解析失敗 (${err.message})`);
   }
