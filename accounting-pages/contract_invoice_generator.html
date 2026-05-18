@@ -379,13 +379,13 @@
     <div class="data-card">
       <h3>🏛️ 建築師/事務所資訊 <span class="badge">乙方</span></h3>
       <div class="field-grid">
-        <div class="fg"><label>事務所名稱</label><input id="c_arch"></div>
-        <div class="fg"><label>負責人/建築師</label><input id="c_arch_rep"></div>
-        <div class="fg full"><label>所址</label><input id="c_arch_addr"></div>
+        <div class="fg"><label>事務所名稱</label><input id="c_arch" value="張哲維建築師事務所"></div>
+        <div class="fg"><label>負責人/建築師</label><input id="c_arch_rep" value="張哲維"></div>
+        <div class="fg full"><label>所址</label><input id="c_arch_addr" value="408台中市南屯區大墩一街241-1號2樓"></div>
         <div class="fg"><label>公司地址</label><input id="c_arch_company_addr"></div>
-        <div class="fg"><label>統一編號</label><input id="c_arch_taxid"></div>
-        <div class="fg"><label>電話</label><input id="c_arch_phone"></div>
-        <div class="fg"><label>傳真</label><input id="c_arch_fax"></div>
+        <div class="fg"><label>統一編號</label><input id="c_arch_taxid" value="47580887"></div>
+        <div class="fg"><label>電話</label><input id="c_arch_phone" value="04-24739736"></div>
+        <div class="fg"><label>傳真</label><input id="c_arch_fax" value="04-24739305"></div>
       </div>
     </div>
 
@@ -575,8 +575,8 @@ function extractContractData(text) {
   const ownerAddrMatch = full.match(/甲方[：:].+?地址[：:]\s*(.+?)(?:\r|\n)/s);
   d.ownerAddr = ownerAddrMatch ? ownerAddrMatch[1].trim() : '';
 
-  // Owner tax ID
-  const ownerTaxMatch = full.match(/甲方[：:].+?統一編號[：:]\s*(\d+)/s);
+  // Owner tax ID — limit search to within the 甲方 block (stop at 乙方 boundary)
+  const ownerTaxMatch = full.match(/甲方[：:](?:(?!乙方).)*?統一編號[：:]\s*(\d+)/s);
   d.ownerTaxId = ownerTaxMatch ? ownerTaxMatch[1] : '';
 
   // Owner phone
@@ -601,8 +601,10 @@ function extractContractData(text) {
   const companyAddrMatch = full.match(/公司地址[：:]\s*(.+?)(?:\r|\n)/);
   d.archCompanyAddr = companyAddrMatch ? companyAddrMatch[1].trim() : '';
 
-  // Architect tax ID
-  const archTaxMatch = full.match(/乙方.+?統一編號[：:]\s*(\d+)/s);
+  // Architect tax ID — limit search to within the 乙方 block (stop at 甲方 boundary
+  // so we never accidentally grab the owner's tax ID, even when 乙方 appears first
+  // in the document).
+  const archTaxMatch = full.match(/乙方(?:(?!甲方).)*?統一編號[：:]\s*(\d+)/s);
   d.archTaxId = archTaxMatch ? archTaxMatch[1] : '47580887';
 
   const archPhoneMatch = full.match(/公司電話[：:]\s*([\d\-]+)/);
