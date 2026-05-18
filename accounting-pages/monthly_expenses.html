@@ -279,17 +279,78 @@ const cS=(items,c)=>items.reduce((s,it)=>s+n(it.v[c]),0);
 function fm(x){if(x===null||x===undefined||x==='')return'';const v=+x;return isNaN(v)?'':v.toLocaleString('zh-TW')}
 const fp=p=>(p*100).toFixed(2)+'%';
 const SKEY='exp115v4';
+const API_URL = '/api/data/monthlyExpenses';
+let _saveTimer = null;
 
 function doSave(){
   try{
-    localStorage.setItem(SKEY,JSON.stringify({mainData,empData,miscData,persData}));
-    const p=document.getElementById('savePill');p.textContent='✓ 已儲存';p.className='save-pill saved';
-    clearTimeout(p._t);p._t=setTimeout(()=>{p.textContent='● 自動儲存';p.className='save-pill'},2200);
+    const payload = JSON.stringify({mainData,empData,miscData,persData});
+    localStorage.setItem(SKEY, payload);
+
+    const p=document.getElementById('savePill');p.textContent='⏳ 儲存中…';p.className='save-pill';
+
+    // Debounce server sync — group rapid edits into one POST 500ms after the last keystroke
+    clearTimeout(_saveTimer);
+    _saveTimer = setTimeout(()=>{
+      fetch(API_URL, {method:'POST', headers:{'Content-Type':'application/json'}, body: payload})
+        .then(r => r.ok ? r.json() : Promise.reject(r.status))
+        .then(()=>{
+          p.textContent='✓ 已儲存（已同步）';p.className='save-pill saved';
+          setTimeout(()=>{p.textContent='● 自動儲存';p.className='save-pill';}, 2200);
+        })
+        .catch(err=>{
+          console.warn('Server sync failed:', err);
+          p.textContent='⚠ 已儲存（僅本機）';p.className='save-pill';
+          setTimeout(()=>{p.textContent='● 自動儲存';p.className='save-pill';}, 3000);
+        });
+    }, 500);
   }catch(e){}
 }
-function doLoad(){
-  try{const s=localStorage.getItem(SKEY);if(s){const d=JSON.parse(s);if(d.mainData)mainData=d.mainData;if(d.empData)empData=d.empData;if(d.miscData)miscData=d.miscData;if(d.persData)persData=d.persData;}}catch(e){}
+
+// Synchronous load from localStorage (used at init before async server load)
+function doLoadLocal(){
+  try{
+    const s=localStorage.getItem(SKEY);
+    if(s){
+      const d=JSON.parse(s);
+      if(d.mainData)mainData=d.mainData;
+      if(d.empData)empData=d.empData;
+      if(d.miscData)miscData=d.miscData;
+      if(d.persData)persData=d.persData;
+      return true;
+    }
+  }catch(e){}
+  return false;
 }
+
+// Pull latest from server. If server has nothing yet AND local has data, push local to seed.
+async function doLoadFromServer(){
+  try{
+    const res = await fetch(API_URL, {cache:'no-store'});
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const d = await res.json();
+    const hasServerData = d && (d.mainData || d.empData || d.miscData || d.persData);
+    if(hasServerData){
+      if(d.mainData)mainData=d.mainData;
+      if(d.empData)empData=d.empData;
+      if(d.miscData)miscData=d.miscData;
+      if(d.persData)persData=d.persData;
+      localStorage.setItem(SKEY, JSON.stringify({mainData,empData,miscData,persData}));
+      return 'server';
+    } else {
+      // Server empty — push current local state to seed it
+      fetch(API_URL, {method:'POST', headers:{'Content-Type':'application/json'},
+                       body: JSON.stringify({mainData,empData,miscData,persData})}).catch(()=>{});
+      return 'seeded';
+    }
+  }catch(err){
+    console.warn('Server load failed, using localStorage only:', err);
+    return 'local-only';
+  }
+}
+
+// Kept for backward compatibility with existing callsite "doLoad();renderMain();..."
+function doLoad(){ doLoadLocal(); }
 
 const TABS=['main','emp','misc','personal'];
 function switchTab(name){
@@ -649,7 +710,23 @@ function processXLS(buf, fname){
       const sheetKey = String(m).padStart(2,'0');
       const ws = wb.Sheets[sheetKey];
       if(!ws) continue;
-      const rows = XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
+      const allRows = XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
+
+      // 月份 sheet 通常有 2 份相同的薪資條（個人存根聯 + 事務所存根聯），
+      // 直接讀全部會把所有數字加 2 倍。只取第一份：截到第二次出現「員工薪資單」
+      // 或第二次出現「姓名:」的位置。
+      let endIdx = allRows.length;
+      for(let i = 5; i < allRows.length; i++){
+        const r = allRows[i];
+        if(!r) continue;
+        const c1 = typeof r[1]==='string' ? r[1] : '';
+        const c3 = typeof r[3]==='string' ? r[3] : '';
+        if(c3.includes('員工薪資單')||c3.includes('薪資單')||c1.startsWith('姓名')){
+          endIdx = i;
+          break;
+        }
+      }
+      const rows = allRows.slice(0, endIdx);
 
       // 先清空該月所有已知標準項目（覆蓋而非累加）
       EMP_ITEM_TEMPLATE.forEach(name=>{
@@ -658,7 +735,7 @@ function processXLS(buf, fname){
       });
 
       let hadData = false;
-      let monthSum = 0; // 給/扣總和（薪資總額）
+      let monthSum = 0;
       for(const r of rows){
         if(!r) continue;
         const label = typeof r[1]==='string' ? r[1].trim() : null;
@@ -674,11 +751,9 @@ function processXLS(buf, fname){
         addEmpItemValue(items, map.target, m-1, value * map.sign);
         monthSum += value * map.sign;
         hadData = true;
-
-        // 勞退 6% 特別處理：xls 裡是「應領金額合計」之後另外列在備註，需特別找
       }
 
-      // 找「勞6%保退休金」(通常在 row 20 附近)
+      // 找「勞6%保退休金」(通常在 row 20 附近，第一份內)
       for(const r of rows){
         if(!r) continue;
         const c1 = typeof r[1]==='string' ? r[1] : '';
@@ -689,7 +764,7 @@ function processXLS(buf, fname){
         }
       }
 
-      // 找「實付金額」當月份總計 (給「公司基本固定開銷」用)
+      // 找「實付金額」當月份總計
       for(const r of rows){
         if(!r) continue;
         const c1 = typeof r[1]==='string' ? r[1] : '';
@@ -758,7 +833,20 @@ function exportJSON(){
 function resetAll(){if(confirm('確定要重設所有資料回初始值？此操作無法還原。')){localStorage.removeItem(SKEY);location.reload();}}
 
 /* INIT */
-doLoad();renderMain();renderEmpTabs();renderMisc();renderPers();
+// 1. Show local data immediately so the page doesn't flash empty
+doLoadLocal();
+renderMain();renderEmpTabs();renderMisc();renderPers();
+
+// 2. Then async-pull latest from server (may overwrite the local view)
+doLoadFromServer().then(source => {
+  if(source === 'server'){
+    // Server had newer data — re-render
+    renderMain();renderEmpTabs();renderMisc();renderPers();
+    const p=document.getElementById('savePill');
+    p.textContent='✓ 已從伺服器拉到最新';p.className='save-pill saved';
+    setTimeout(()=>{p.textContent='● 自動儲存';p.className='save-pill';}, 2500);
+  }
+});
 </script>
 </div>
 </body>
