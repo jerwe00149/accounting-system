@@ -655,7 +655,10 @@ function renderProjects(){
     <td class="text-right mono" style="color:${totalProfitRate>=0?'var(--success)':'var(--danger)'}">${totalProfitRate.toFixed(1)}%</td>
     <td colspan="2"></td></tr>`;
 
-  const totalSubCost=DB.projects.reduce((s,p)=>s+getLinkedSubcontractorTotal(p.id),0);
+  // 複委託支出: use the unified vendors-first / payables-fallback calc so it matches
+  // the column total in the table and the 純利 column. (Old code summed ALL linked
+  // payables including non-subcontractor categories like 代扣所得稅.)
+  const totalSubCost=DB.projects.reduce((s,p)=>s+getSubcontractorCostForProject(p),0);
   document.getElementById('projStats').innerHTML=`
     <div class="stat-card accent"><div class="label">案件數</div><div class="value">${filtered.length}${yf?' (篩選)':''}</div></div>
     <div class="stat-card success"><div class="label">合約總額</div><div class="value">${fmtMoney(totalContract)}</div></div>
@@ -1024,13 +1027,22 @@ function renderSubcontractors(){
   yearFilter.value=curYearVal;
   const yf=yearFilter.value;
 
-  // Gather all subcontractor payables
+  // Gather all subcontractor payables (status info comes only from this side)
   const subPayables=DB.payables.filter(p=>p.category==='subcontractor');
-  const totalSub=subPayables.reduce((s,p)=>s+(p.amount||0),0);
   const paidSub=subPayables.filter(p=>p.status==='paid').reduce((s,p)=>s+(p.amount||0),0);
+
+  // 複委託總額 — vendors-first / payables-fallback, summed across all projects.
+  // This matches what 案件收支 shows in 複委託支出 column.
+  const totalSub=DB.projects.reduce((s,p)=>s+getSubcontractorCostForProject(p),0);
   const pendingSub=totalSub-paidSub;
-  const linkedProjIds=new Set(subPayables.filter(p=>p.projectId).map(p=>p.projectId));
-  DB.projects.forEach(p=>{if(p.subcontractor)linkedProjIds.add(p.id)});
+
+  // 關聯案件數 — count projects that have ANY subcontractor record (vendors OR payables)
+  const linkedProjIds=new Set();
+  DB.projects.forEach(p=>{
+    const hasVendors=(p.vendors||[]).some(v=>(v.amount||0)>0);
+    const hasPayables=DB.payables.some(x=>x.projectId===p.id && x.category==='subcontractor');
+    if(hasVendors||hasPayables||p.subcontractor) linkedProjIds.add(p.id);
+  });
 
   document.getElementById('subStats').innerHTML=`
     <div class="stat-card accent"><div class="label">複委託總額</div><div class="value">${fmtMoney(totalSub)}</div><div class="sub">${subPayables.length} 筆帳款</div></div>
@@ -1158,9 +1170,10 @@ function renderSubByProject(el,subPayables){
       const v = vendors.find(x => x.category === cat);
       return v ? v : null;
     });
-    // 合計 sums ALL vendor amounts (incl. non-standard categories like 室內裝修、估算、其他)
-    // so it stays in sync with the 副委託費用 column in the 案件收支 page.
-    const total = vendors.reduce((s, v) => s + (v.amount || 0), 0);
+    // 合計 uses the unified vendors-first / payables-fallback calc so projects that
+    // have only linked subcontractor payables (no p.vendors) still show their total
+    // here (matches what 案件收支 shows in 複委託費用 column).
+    const total = getSubcontractorCostForProject(p);
     const pct = p.contractAmt ? (total / p.contractAmt * 100) : 0;
     
     html += `<tr style="border-bottom:1px solid #e2e8f0">
@@ -1180,7 +1193,12 @@ function renderSubByProject(el,subPayables){
       }
     });
     
-    html+=`<td style="padding:10px 8px;text-align:right;font-weight:700;color:#dc2626;background:#fef2f2">${fmtMoney(total)}</td>
+    // Note when the row's 合計 comes from linked payables (not vendor cells), so the
+    // user knows why cells show "-" but 合計 is non-zero.
+    const vendorsTotal = vendors.reduce((s, v) => s + (v.amount || 0), 0);
+    const totalNote = (total > 0 && vendorsTotal === 0) ? '（來自應付帳款）' : '';
+    const totalTitle = totalNote ? `${fmtMoney(total)} 來自此案件關聯的應付帳款（subcontractor 類），非從報價單匯入的副委託金額` : '';
+    html+=`<td style="padding:10px 8px;text-align:right;font-weight:700;color:#dc2626;background:#fef2f2" title="${totalTitle}">${fmtMoney(total)}${totalNote?'<br><span style=\"font-size:.6rem;font-weight:400;color:#7c2d12\">'+totalNote+'</span>':''}</td>
       <td style="padding:10px 8px;text-align:right;color:#059669;font-weight:500">${fmtMoney(p.contractAmt)}</td>
       <td style="padding:10px 8px;text-align:right"><span style="padding:2px 8px;background:${pct>50?'#fef2f2':pct>30?'#fffbeb':'#f0fdf4'};color:${pct>50?'#dc2626':pct>30?'#d97706':'#059669'};border-radius:4px;font-size:.75rem;font-weight:600">${pct > 0 ? pct.toFixed(1) + '%' : '-'}</span></td></tr>`;
   });
@@ -1191,10 +1209,10 @@ function renderSubByProject(el,subPayables){
       return s + (v ? v.amount : 0);
     }, 0)
   );
-  // grandTotal sums ALL vendor amounts (incl. non-standard categories), matching
-  // the 副委託費用 column total in the 案件收支 page.
+  // grandTotal: same vendors-first / payables-fallback as each row's 合計,
+  // matching the 副委託費用 column total in the 案件收支 page.
   const grandTotal = projectsWithVendors.reduce(
-    (s, p) => s + (p.vendors || []).reduce((s2, v) => s2 + (v.amount || 0), 0),
+    (s, p) => s + getSubcontractorCostForProject(p),
     0
   );
   const totalContract = projectsWithVendors.reduce((s, p) => s + (p.contractAmt || 0), 0);
