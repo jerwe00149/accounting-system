@@ -318,18 +318,34 @@ function showDetail(id){
   if(!p) return;
   const st = getStatus(p);
 
-  let paymentsHTML = '';
-  if(p.payments.length){
-    paymentsHTML = '<div class="timeline">' + p.payments.map(pay => {
-      const paid = pay.amt > 0 && pay.date;
-      return `<div class="timeline-item ${paid?'paid':''}">
-        <div>第 ${pay.period} 期 — <span class="t-amt">${fmt(pay.amt)}</span></div>
-        <div class="t-date">${pay.date || '未收款'} ${pay.method ? '（'+pay.method+'）': ''}</div>
-      </div>`;
-    }).join('') + '</div>';
-  } else {
-    paymentsHTML = '<p style="color:#999;font-size:.85rem">無收款紀錄</p>';
+  // 可編輯的收款紀錄：第 1~5 期，每期金額 / 收款日 / 方式
+  const methods = ['', '電匯', '支票', '轉帳', '現金'];
+  let rowsHTML = '';
+  for(let i=1;i<=5;i++){
+    const pay = (p.payments||[]).find(x=>x.period===i) || {amt:0, date:'', method:''};
+    rowsHTML += `<tr>
+      <td style="white-space:nowrap;padding:6px 8px">第 ${i} 期</td>
+      <td style="padding:6px 4px"><input type="number" id="pay_amt_${i}" value="${pay.amt||''}" placeholder="0" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;text-align:right;font-size:.95rem"></td>
+      <td style="padding:6px 4px"><input type="date" id="pay_date_${i}" value="${pay.date ? pay.date.replace(/\./g,'-') : ''}" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:.95rem"></td>
+      <td style="padding:6px 4px"><select id="pay_method_${i}" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:.95rem">
+        ${methods.map(m=>`<option value="${m}" ${m===(pay.method||'')?'selected':''}>${m||'—'}</option>`).join('')}
+      </select></td>
+    </tr>`;
   }
+  const paymentsHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:.9rem">
+      <thead><tr style="background:#f1f5f9">
+        <th style="padding:6px 8px;text-align:left">期數</th>
+        <th style="padding:6px 8px;text-align:right">金額</th>
+        <th style="padding:6px 8px;text-align:left">收款日</th>
+        <th style="padding:6px 8px;text-align:left">方式</th>
+      </tr></thead>
+      <tbody>${rowsHTML}</tbody>
+    </table>
+    <div style="margin-top:10px">
+      <button class="btn btn-primary btn-sm" onclick="savePayments(${p.id})">💾 儲存收款紀錄</button>
+      <span style="font-size:.8rem;color:var(--muted);margin-left:8px">改完按此存回案件收支</span>
+    </div>`;
 
   document.getElementById('modalContent').innerHTML = `
     <h3>📋 ${p.projectName}</h3>
@@ -368,6 +384,44 @@ function showDetail(id){
 
 function closeModal(){
   document.getElementById('modalOverlay').classList.remove('active');
+}
+
+async function savePayments(id){
+  // 收集 5 期的金額 / 收款日 / 方式
+  const updates = {};
+  for(let i=1;i<=5;i++){
+    const amt = parseFloat(document.getElementById('pay_amt_'+i).value) || 0;
+    const dateRaw = document.getElementById('pay_date_'+i).value; // YYYY-MM-DD
+    const method = document.getElementById('pay_method_'+i).value;
+    updates['p'+i+'_amt'] = amt || null;
+    updates['p'+i+'_date'] = dateRaw ? dateRaw.replace(/-/g,'.') : '';
+    updates['p'+i+'_method'] = method || '';
+    if(amt>0 || dateRaw) updates['p'+i+'_received'] = true;
+    else updates['p'+i+'_received'] = false;
+  }
+
+  try{
+    // 讀目前的 archAccounting，改對應案件，再寫回
+    const r = await fetch(API_BASE + '/archAccounting', {cache:'no-store'});
+    if(!r.ok) throw new Error('讀取失敗 HTTP '+r.status);
+    const db = await r.json();
+    const proj = (db.projects||[]).find(x => x.id === id);
+    if(!proj) throw new Error('找不到案件');
+    Object.assign(proj, updates);
+
+    const pr = await fetch(API_BASE + '/archAccounting', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(db)
+    });
+    if(!pr.ok) throw new Error('儲存失敗 HTTP '+pr.status);
+
+    await syncFromAccounting(); // 重新拉資料刷新畫面
+    closeModal();
+    alert('✅ 收款紀錄已儲存');
+  }catch(e){
+    alert('❌ 儲存失敗：' + e.message);
+  }
 }
 
 async function saveExtra(id){
