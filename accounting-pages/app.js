@@ -470,6 +470,8 @@ function switchPage(page){
   const titles={dashboard:'總覽',projects:'案件收支表',subcontractors:'複委託管理',payables:'應付帳款',payroll:'薪資總表',report:'月報表',import:'匯入資料',quotation:'報價單上傳',settings:'設定'};
   document.getElementById('pageTitle').textContent=titles[page]||page;
   document.getElementById('sidebar').classList.remove('open');
+  // 應付帳款：全螢幕模式（隱藏側邊欄）
+  document.body.classList.toggle('payables-fullscreen', page==='payables');
   if(page==='dashboard')renderDashboard();
   if(page==='projects')renderProjects();
   if(page==='payables')renderPayables();

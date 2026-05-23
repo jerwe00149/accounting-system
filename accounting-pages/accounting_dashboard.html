@@ -192,6 +192,22 @@ tbody tr:hover{background:#eef2ff}
 }
 .vendor-cell:hover{background-color:#e0e7ff!important}
 
+/* ===== 應付帳款：全螢幕（隱藏側邊欄）+ 放大字體 ===== */
+body.payables-fullscreen .sidebar{display:none}
+body.payables-fullscreen .main{margin-left:0}
+#page-payables table{font-size:1rem}
+#page-payables th{font-size:.9rem}
+#page-payables td{font-size:1rem}
+#page-payables .mono{font-size:.98rem}
+#page-payables .stat-card .label{font-size:.95rem}
+#page-payables .stat-card .value{font-size:1.7rem}
+#page-payables .stat-card .sub{font-size:.85rem}
+#page-payables .sub-tab{font-size:.95rem}
+#page-payables .badge{font-size:.85rem}
+#page-payables .btn{font-size:.95rem}
+#page-payables select{font-size:.95rem}
+#page-payables td[style*="font-size"], #page-payables span[style*="font-size"]{font-size:.95rem !important}
+
 /* ===== 放大「匯入資料」頁字體 ===== */
 #page-import{font-size:1rem}
 #page-import h3{font-size:1.15rem}
@@ -335,6 +351,9 @@ tbody tr:hover{background:#eef2ff}
 
     <!-- ===== PAYABLES ===== -->
     <div class="page" id="page-payables">
+      <div style="margin-bottom:16px">
+        <button class="btn btn-outline" onclick="switchPage('dashboard')">← 回主畫面</button>
+      </div>
       <div class="stats-row" id="payStats"></div>
       <div class="sub-tabs">
         <div class="sub-tab active" data-subtab="all" onclick="switchPayableTab('all')">全部</div>
@@ -823,7 +842,7 @@ if (stored) {
   } catch(e) { localStorage.removeItem('archAccounting'); }
 }
 </script>
-<script src="app.js?v=20260519e"></script>
+<script src="app.js?v=20260519f"></script>
 <script>
 // Hash routing — apply on DOMContentLoaded so it doesn't depend on the API fetch finishing.
 function applyHashRoute() {
