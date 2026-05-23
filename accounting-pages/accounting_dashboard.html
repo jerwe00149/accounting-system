@@ -192,6 +192,17 @@ tbody tr:hover{background:#eef2ff}
 }
 .vendor-cell:hover{background-color:#e0e7ff!important}
 
+/* ===== 放大「總覽」頁字體 ===== */
+#page-dashboard table{font-size:1rem}
+#page-dashboard th{font-size:.9rem}
+#page-dashboard td{font-size:1rem}
+#page-dashboard .mono{font-size:.98rem}
+#page-dashboard .stat-card .label{font-size:.95rem}
+#page-dashboard .stat-card .value{font-size:1.7rem}
+#page-dashboard .stat-card .sub{font-size:.85rem}
+#page-dashboard h3{font-size:1.15rem}
+#page-dashboard .badge{font-size:.85rem}
+
 /* ===== 放大「案件收支」與「副委託管理」表格字體 ===== */
 #page-projects table, #page-subcontractors table{font-size:1rem}
 #page-projects th, #page-subcontractors th{font-size:.9rem}
@@ -800,7 +811,7 @@ if (stored) {
   } catch(e) { localStorage.removeItem('archAccounting'); }
 }
 </script>
-<script src="app.js?v=20260519c"></script>
+<script src="app.js?v=20260519d"></script>
 <script>
 // Hash routing — apply on DOMContentLoaded so it doesn't depend on the API fetch finishing.
 function applyHashRoute() {
