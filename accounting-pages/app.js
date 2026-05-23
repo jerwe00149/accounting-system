@@ -1140,7 +1140,6 @@ function renderSubByProject(el,subPayables){
   html+=`<div style="margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
     <p style="font-size:.8rem;color:#64748b;margin:0">💡 點擊任何儲存格可編輯或新增複委託資料</p>
     <div style="display:flex;gap:8px">
-      <button class="btn btn-warning btn-sm" onclick="initAllSubcontractors()">🪄 預填所有案件副委託</button>
       <button class="btn btn-primary btn-sm" onclick="showAddVendorModal()">＋ 新增複委託</button>
     </div>
   </div>`;
@@ -1183,7 +1182,8 @@ function renderSubByProject(el,subPayables){
     catAmts.forEach((a,idx) => {
       const cat = cats[idx];
       const catEncoded = encodeURIComponent(cat);
-      if(a && a.vendor){
+      // 只在「有廠商且金額非 0」時顯示內容，其餘一律顯示可點擊的「-」(不再顯示 (待填)/0 佔位)
+      if(a && a.vendor && (a.amount||0)!==0){
         html+=`<td class="vendor-cell" style="padding:8px 6px;text-align:right;cursor:pointer" data-pid="${p.id}" data-cat="${catEncoded}" title="點擊編輯 ${cat}">
           <div style="font-size:.7rem;color:${catColors[cat]};font-weight:500" title="${a.vendor}: ${fmtMoney(a.amount)}">${a.vendor.substring(0,4)}</div>
           <div style="font-size:.75rem;font-weight:600;color:#334155">${fmtMoney(a.amount)}</div>
