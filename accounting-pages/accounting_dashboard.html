@@ -198,10 +198,11 @@ tbody tr:hover{background:#eef2ff}
 #page-projects td, #page-subcontractors td{font-size:1rem}
 #page-projects .mono, #page-subcontractors .mono{font-size:.98rem}
 #page-projects .btn-sm, #page-subcontractors .btn-sm{font-size:.88rem}
-/* 覆蓋掉寫死在儲存格 / span 上的小字 (.72rem / .75rem / .8rem 等) */
+/* 覆蓋掉寫死在儲存格 / span / div 上的小字 (.7rem / .72rem / .75rem / .8rem 等) */
 #page-projects td[style*="font-size"], #page-subcontractors td[style*="font-size"],
 #page-projects span[style*="font-size"], #page-subcontractors span[style*="font-size"],
-#page-subcontractors th[style*="font-size"]{font-size:.95rem !important}
+#page-subcontractors td div[style*="font-size"],
+#page-subcontractors th[style*="font-size"]{font-size:.92rem !important}
 </style>
 </head>
 <body>
@@ -799,7 +800,7 @@ if (stored) {
   } catch(e) { localStorage.removeItem('archAccounting'); }
 }
 </script>
-<script src="app.js?v=20260519b"></script>
+<script src="app.js?v=20260519c"></script>
 <script>
 // Hash routing — apply on DOMContentLoaded so it doesn't depend on the API fetch finishing.
 function applyHashRoute() {

@@ -1185,8 +1185,8 @@ function renderSubByProject(el,subPayables){
       // 只在「有廠商且金額非 0」時顯示內容，其餘一律顯示可點擊的「-」(不再顯示 (待填)/0 佔位)
       if(a && a.vendor && (a.amount||0)!==0){
         html+=`<td class="vendor-cell" style="padding:8px 6px;text-align:right;cursor:pointer" data-pid="${p.id}" data-cat="${catEncoded}" title="點擊編輯 ${cat}">
-          <div style="font-size:.7rem;color:${catColors[cat]};font-weight:500" title="${a.vendor}: ${fmtMoney(a.amount)}">${a.vendor.substring(0,4)}</div>
-          <div style="font-size:.75rem;font-weight:600;color:#334155">${fmtMoney(a.amount)}</div>
+          <div style="font-size:.9rem;color:${catColors[cat]};font-weight:600;white-space:nowrap" title="${a.vendor}: ${fmtMoney(a.amount)}">${a.vendor.substring(0,8)}</div>
+          <div style="font-size:.92rem;font-weight:700;color:#334155">${fmtMoney(a.amount)}</div>
         </td>`;
       }else{
         html+=`<td class="vendor-cell" style="padding:8px 6px;text-align:right;color:#cbd5e1;cursor:pointer" data-pid="${p.id}" data-cat="${catEncoded}" title="點擊新增 ${cat}">-</td>`;
