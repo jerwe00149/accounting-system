@@ -120,6 +120,10 @@ tbody tr:hover{background:#f5f9ff}
       <option value="contract-desc">合約金額 ↓</option>
       <option value="year-desc">年度 ↓</option>
     </select>
+    <label style="display:inline-flex;align-items:center;gap:6px;font-size:.95rem;cursor:pointer;white-space:nowrap">
+      <input type="checkbox" id="hideClosed" checked onchange="render()" style="width:16px;height:16px;cursor:pointer">
+      隱藏已結案
+    </label>
     <button class="btn btn-primary" onclick="syncFromAccounting()">🔄 同步案件資料</button>
     <button class="btn btn-outline" onclick="exportCSV()">📥 匯出 CSV</button>
     <button class="btn btn-outline" onclick="window.print()">🖨️ 列印</button>
@@ -195,6 +199,7 @@ async function syncFromAccounting(){
         payments: getPayments(p),
         dueDate: extra.dueDate || '',
         notes: extra.notes || '',
+        closed: extra.closed || false,
         subcontractor: p.subcontractor || ''
       };
     });
@@ -251,8 +256,10 @@ function render(){
   const statusFilter = document.getElementById('filterStatus').value;
   const yearFilter = document.getElementById('filterYear').value;
   const sortBy = document.getElementById('sortBy').value;
+  const hideClosed = document.getElementById('hideClosed').checked;
 
   let filtered = projects.filter(p => {
+    if(hideClosed && p.closed) return false;
     if(search && !(p.projectName+p.client+p.businessNo+p.location).toLowerCase().includes(search)) return false;
     if(yearFilter !== 'all' && p.year !== yearFilter) return false;
     const st = getStatus(p).key;
@@ -275,17 +282,18 @@ function render(){
     return dir === 'asc' ? va - vb : vb - va;
   });
 
-  // Stats
-  const totalContract = projects.reduce((s,p) => s + p.contractAmt, 0);
-  const totalReceived = projects.reduce((s,p) => s + p.received, 0);
-  const totalOutstanding = projects.reduce((s,p) => s + Math.max(0, p.outstanding), 0);
-  const unpaidCount = projects.filter(p => getStatus(p).key === 'unpaid' || getStatus(p).key === 'partial' || getStatus(p).key === 'overdue').length;
+  // Stats — 排除已結案案件（隱藏時不計入未收統計，避免灌水）
+  const statsBase = hideClosed ? projects.filter(p => !p.closed) : projects;
+  const totalContract = statsBase.reduce((s,p) => s + p.contractAmt, 0);
+  const totalReceived = statsBase.reduce((s,p) => s + p.received, 0);
+  const totalOutstanding = statsBase.reduce((s,p) => s + Math.max(0, p.outstanding), 0);
+  const unpaidCount = statsBase.filter(p => getStatus(p).key === 'unpaid' || getStatus(p).key === 'partial' || getStatus(p).key === 'overdue').length;
 
   document.getElementById('statsRow').innerHTML = `
-    <div class="stat blue"><div class="label">合約總額</div><div class="value">${fmt(totalContract)}</div><div class="sub">${projects.length} 件案件</div></div>
+    <div class="stat blue"><div class="label">合約總額</div><div class="value">${fmt(totalContract)}</div><div class="sub">${statsBase.length} 件案件${hideClosed&&projects.length>statsBase.length?'（已隱藏 '+(projects.length-statsBase.length)+' 件結案）':''}</div></div>
     <div class="stat green"><div class="label">已收款總額</div><div class="value">${fmt(totalReceived)}</div><div class="sub">收款率 ${totalContract>0?Math.round(totalReceived/totalContract*100):0}%</div></div>
     <div class="stat orange"><div class="label">未收款總額</div><div class="value">${fmt(totalOutstanding)}</div><div class="sub">${unpaidCount} 件未收齊</div></div>
-    <div class="stat red"><div class="label">逾期未收</div><div class="value">${fmt(projects.filter(p=>getStatus(p).key==='overdue').reduce((s,p)=>s+p.outstanding,0))}</div><div class="sub">${projects.filter(p=>getStatus(p).key==='overdue').length} 件逾期</div></div>
+    <div class="stat red"><div class="label">逾期未收</div><div class="value">${fmt(statsBase.filter(p=>getStatus(p).key==='overdue').reduce((s,p)=>s+p.outstanding,0))}</div><div class="sub">${statsBase.filter(p=>getStatus(p).key==='overdue').length} 件逾期</div></div>
   `;
 
   // Table
@@ -307,8 +315,11 @@ function render(){
       <td class="text-right mono" style="color:var(--success)">${fmt(p.received)}</td>
       <td class="text-right mono" style="color:${p.outstanding>0?'var(--danger)':'var(--success)'}; font-weight:700">${fmt(Math.max(0,p.outstanding))}</td>
       <td><div class="progress"><div class="progress-bar progress-${pctColor}" style="width:${Math.min(100,p.percent)}%"></div></div><span style="font-size:.75rem;color:var(--muted)">${p.percent}%</span></td>
-      <td><span class="badge ${st.cls}">${st.label}</span></td>
-      <td><button class="btn btn-outline btn-sm" onclick="showDetail(${p.id})">明細</button></td>
+      <td><span class="badge ${st.cls}">${st.label}</span>${p.closed?' <span class="badge" style="background:#475569;color:#fff">已結案</span>':''}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-outline btn-sm" onclick="showDetail(${p.id})">明細</button>
+        <button class="btn btn-outline btn-sm" onclick="toggleClosed(${p.id})" title="${p.closed?'取消結案':'標記結案'}">${p.closed?'↩️ 復原':'✓ 結案'}</button>
+      </td>
     </tr>`;
   }).join('');
 }
@@ -424,19 +435,15 @@ async function savePayments(id){
   }
 }
 
-async function saveExtra(id){
-  const dueDate = document.getElementById('detailDue').value;
-  const notes = document.getElementById('detailNotes').value;
+function upsertReceivable(id, patch){
   const idx = receivables.findIndex(r => r.projectId === id);
-  const obj = {projectId: id, dueDate, notes};
-  if(idx >= 0) receivables[idx] = obj;
-  else receivables.push(obj);
+  const base = idx >= 0 ? receivables[idx] : {projectId: id};
+  const obj = {...base, ...patch};
+  if(idx >= 0) receivables[idx] = obj; else receivables.push(obj);
+  return obj;
+}
 
-  // Update local
-  const p = projects.find(x => x.id === id);
-  if(p){ p.dueDate = dueDate; p.notes = notes; }
-
-  // Save
+async function persistReceivables(){
   try{
     await fetch(API_BASE + '/receivables', {
       method: 'PUT',
@@ -445,9 +452,29 @@ async function saveExtra(id){
     });
   }catch(e){}
   localStorage.setItem('receivablesExtra', JSON.stringify(receivables));
+}
 
+async function saveExtra(id){
+  const dueDate = document.getElementById('detailDue').value;
+  const notes = document.getElementById('detailNotes').value;
+  upsertReceivable(id, {dueDate, notes}); // 保留既有的 closed 等欄位
+
+  const p = projects.find(x => x.id === id);
+  if(p){ p.dueDate = dueDate; p.notes = notes; }
+
+  await persistReceivables();
   render();
   closeModal();
+}
+
+async function toggleClosed(id){
+  const p = projects.find(x => x.id === id);
+  if(!p) return;
+  const newVal = !p.closed;
+  p.closed = newVal;
+  upsertReceivable(id, {closed: newVal});
+  await persistReceivables();
+  render();
 }
 
 function exportCSV(){
